@@ -36,6 +36,12 @@ new class extends Component
                 </div>
             </div>
 
+            @can('master.view')
+                <x-nav-link :href="route('master.vendors')" :active="request()->routeIs('master.*')" wire:navigate>
+                    Data Master
+                </x-nav-link>
+            @endcan
+
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">
