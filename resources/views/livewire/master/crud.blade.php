@@ -2,15 +2,17 @@
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
 
         {{-- Tab antar entitas --}}
-        <div class="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
-            @foreach ($tabs as $key => [$route, $label])
-                <a href="{{ route($route) }}" wire:navigate
-                   class="px-3 py-1.5 rounded-md text-sm font-medium
-                          {{ $currentTab === $key ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                    {{ $label }}
-                </a>
-            @endforeach
-        </div>
+        @if (count($tabs))
+            <div class="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
+                @foreach ($tabs as $key => [$route, $label])
+                    <a href="{{ route($route) }}" wire:navigate
+                    class="px-3 py-1.5 rounded-md text-sm font-medium
+                            {{ $currentTab === $key ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                        {{ $label }}
+                    </a>
+                @endforeach
+            </div>
+        @endif
 
         <div class="flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-800">{{ $heading }}</h2>
@@ -79,6 +81,9 @@
                                 </td>
                             @endforeach
                             <td class="px-4 py-3 text-right whitespace-nowrap space-x-3">
+                                @if ($detailRoute)
+                                    <a href="{{ route($detailRoute, $row->id) }}" wire:navigate class="text-emerald-700 hover:underline">Kelola versi</a>
+                                @endif
                                 @if ($canManage)
                                     <button wire:click="edit({{ $row->id }})" class="text-indigo-600 hover:underline">Ubah</button>
                                     <button wire:click="toggleStatus({{ $row->id }})" class="text-gray-600 hover:underline">

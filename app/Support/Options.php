@@ -37,6 +37,31 @@ class Options
         'operasional' => 'Operasional', 'lainnya' => 'Lainnya',
     ];
 
+    public const TRIP_TYPES = [
+        'open_trip' => 'Open Trip',
+        'private' => 'Private Trip',
+        'one_day' => 'One Day Trip',
+        'group_tour' => 'Group Tour',
+        'honeymoon' => 'Honeymoon Trip',
+        'jeep' => 'SOJ Experience / Jeep Trip',
+        'custom' => 'Custom Trip',
+    ];
+
+    public const ITEM_TYPES = [
+        'hotel' => 'Hotel',
+        'vehicle' => 'Kendaraan',
+        'activity' => 'Aktivitas',
+        'meal' => 'Meal',
+        'destination' => 'Destinasi',
+        'cost_item' => 'Biaya lain',
+    ];
+
+    public const VERSION_STATUS = [
+        'draft' => 'Draft',
+        'active' => 'Aktif',
+        'archived' => 'Arsip',
+    ];
+
     /** Untuk aturan validasi: 'in:'.Options::keys(Options::STATUS) */
     public static function keys(array $options): string
     {

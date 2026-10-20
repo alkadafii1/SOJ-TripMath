@@ -109,9 +109,12 @@ abstract class MasterCrud extends Component
         return $class::query();
     }
 
+    protected function manageAbility(): string { return 'master.manage'; }
+    protected function detailRoute(): ?string { return null; }
+
     protected function authorizeManage(): void
     {
-        abort_unless(Gate::allows('master.manage'), 403);
+        abort_unless(Gate::allows($this->manageAbility()), 403);
     }
 
     protected function resetForm(): void
@@ -280,7 +283,8 @@ abstract class MasterCrud extends Component
             'tabs' => $this->tabs(),
             'currentTab' => $this->entity(),
             'rateLabels' => $rateLabels,
-            'canManage' => Gate::allows('master.manage'),
+            'canManage' => Gate::allows($this->manageAbility()),
+            'detailRoute' => $this->detailRoute(),
         ])->layout('layouts.app');
     }
 }

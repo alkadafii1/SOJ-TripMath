@@ -8,6 +8,8 @@ use App\Livewire\Master\HotelIndex;
 use App\Livewire\Master\MealIndex;
 use App\Livewire\Master\VehicleIndex;
 use App\Livewire\Master\VendorIndex;
+use App\Livewire\Package\PackageDetail;
+use App\Livewire\Package\PackageIndex;
 
 Route::view('/', 'welcome');
 
@@ -37,6 +39,8 @@ Route::middleware(['auth', 'permission:master.view'])
         Route::get('activities', ActivityIndex::class)->name('activities');
         Route::get('meals', MealIndex::class)->name('meals');
         Route::get('cost-items', CostItemIndex::class)->name('cost-items');
+        Route::get('packages', PackageIndex::class)->name('packages');
+        Route::get('packages/{package}', PackageDetail::class)->name('packages.show');
     });
 
 require __DIR__.'/auth.php';

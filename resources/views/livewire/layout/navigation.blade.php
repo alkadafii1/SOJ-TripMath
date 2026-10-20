@@ -42,6 +42,12 @@ new class extends Component
                 </x-nav-link>
             @endcan
 
+            @can('master.view')
+                <x-nav-link :href="route('master.packages')" :active="request()->routeIs('packages*')" wire:navigate>
+                    Paket
+                </x-nav-link>
+            @endcan
+
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">
