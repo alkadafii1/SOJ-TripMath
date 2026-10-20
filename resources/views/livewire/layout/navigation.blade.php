@@ -48,6 +48,12 @@ new class extends Component
                 </x-nav-link>
             @endcan
 
+            @can('trip.view')
+                <x-nav-link :href="route('trips.index')" :active="request()->routeIs('trips.*')" wire:navigate>
+                    Trip
+                </x-nav-link>
+            @endcan
+
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">

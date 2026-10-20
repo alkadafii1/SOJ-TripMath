@@ -31,7 +31,7 @@ class RolePermissionSeeder extends Seeder
 
         // Operational Partner: alur operasional pada trip yang ditugaskan
         Role::firstOrCreate(['name' => 'partner', 'guard_name' => 'web'])
-            ->syncPermissions(['master.view', 'trip.view', 'trip.update']);
+            ->syncPermissions(['master.view', 'trip.view']);
 
         // Staff: estimasi, itinerary, quotation
         Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'web'])

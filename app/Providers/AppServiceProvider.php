@@ -22,8 +22,16 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Profit, margin, bagi hasil: hanya Owner atau yang diberi financial_visibility
         Gate::define('view-finance', fn (User $user) =>
             $user->hasRole('owner') || $user->financial_visibility
+        );
+
+        // Angka biaya pada trip: Staff menyusun estimasi, jadi perlu melihat biaya
+        Gate::define('view-costs', fn (User $user) =>
+            $user->hasRole('owner')
+            || $user->financial_visibility
+            || $user->can('trip.create')
         );
 
         // morphMap biasa, bukan enforceMorphMap, supaya Spatie tidak error

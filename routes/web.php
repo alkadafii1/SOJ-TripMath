@@ -10,6 +10,9 @@ use App\Livewire\Master\VehicleIndex;
 use App\Livewire\Master\VendorIndex;
 use App\Livewire\Package\PackageDetail;
 use App\Livewire\Package\PackageIndex;
+use App\Livewire\Trip\TripForm;
+use App\Livewire\Trip\TripIndex;
+use App\Livewire\Trip\TripShow;
 
 Route::view('/', 'welcome');
 
@@ -41,6 +44,14 @@ Route::middleware(['auth', 'permission:master.view'])
         Route::get('cost-items', CostItemIndex::class)->name('cost-items');
         Route::get('packages', PackageIndex::class)->name('packages');
         Route::get('packages/{package}', PackageDetail::class)->name('packages.show');
+    });
+
+Route::middleware(['auth', 'permission:trip.view'])
+    ->prefix('trips')->name('trips.')->group(function () {
+        Route::get('/', TripIndex::class)->name('index');
+        Route::get('create', TripForm::class)->name('create');
+        Route::get('{trip}', TripShow::class)->name('show');
+        Route::get('{trip}/edit', TripForm::class)->name('edit');
     });
 
 require __DIR__.'/auth.php';
