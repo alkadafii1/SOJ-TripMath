@@ -38,7 +38,13 @@
                     <dd class="font-medium">{{ $trip->start_date->format('d/m/Y') }} - {{ $trip->end_date->format('d/m/Y') }}</dd>
                 </div>
                 <div><dt class="text-gray-500">Durasi</dt><dd class="font-medium">{{ $trip->duration_days }} hari / {{ $trip->nights }} malam</dd></div>
-                <div><dt class="text-gray-500">Pax</dt><dd class="font-medium">{{ $trip->pax }}</dd></div>
+                {{-- baris Pax --}}
+                <div>
+                    <dt class="text-gray-500">Pax</dt>
+                    <dd class="font-medium">
+                        {{ $trip->pax }}@if ($trip->effectivePax() !== $trip->pax)<span class="text-xs text-gray-500"> (biaya dihitung dengan {{ $trip->effectivePax() }} confirmed pax)</span>@endif
+                    </dd>
+                </div>
                 <div><dt class="text-gray-500">Staff</dt><dd class="font-medium">{{ $trip->staff?->name ?? '-' }}</dd></div>
                 <div><dt class="text-gray-500">Operational Partner</dt><dd class="font-medium">{{ $trip->partner?->name ?? '-' }}</dd></div>
                 <div><dt class="text-gray-500">Destinasi</dt><dd class="font-medium">{{ $destinations ? implode(', ', $destinations) : '-' }}</dd></div>
@@ -72,6 +78,11 @@
                     <button wire:click="$set('showCancel', true)"
                             class="px-3 py-1.5 text-sm rounded-md border border-red-300 text-red-700 hover:bg-red-50">Batalkan trip</button>
                 @endif
+                {{-- tombol Harga & negosiasi --}}
+                @can('view-costs')
+                    <a href="{{ route('trips.pricing', $trip->id) }}" wire:navigate
+                       class="px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-500">Harga &amp; negosiasi</a>
+                @endcan
             </div>
         </div>
 
@@ -116,7 +127,8 @@
                                     <td class="px-3 py-2">{{ $item->cost_behavior === 'fixed' ? 'Fixed' : 'Variable' }}</td>
                                     <td class="px-3 py-2 text-right">
                                         @if ($item->cost_type === 'per_person')
-                                            {{ $fmt($item->quantity) }} &times; {{ $trip->pax }} pax
+                                            {{-- [PERUBAHAN #2] pakai effectivePax() --}}
+                                            {{ $fmt($item->quantity) }} &times; {{ $trip->effectivePax() }} pax
                                         @elseif ($item->unit_capacity)
                                             {{ $fmt($item->override_quantity ?? $item->calculated_quantity ?? $item->quantity) }}
                                             @if ($item->override_quantity !== null)

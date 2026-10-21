@@ -8,4 +8,9 @@ class Money
     {
         return 'Rp '.number_format((float) $value, 0, ',', '.');
     }
+
+    public static function percent($value): string
+    {
+    return number_format((float) $value, 2, ',', '.').'%';
+    }
 }

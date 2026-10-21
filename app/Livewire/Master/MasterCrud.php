@@ -95,9 +95,11 @@ abstract class MasterCrud extends Component
     }
 
     // ---- Siklus hidup ----
+    protected function viewAbility(): string { return 'master.view'; }
+
     public function mount(): void
     {
-        abort_unless(Gate::allows('master.view'), 403);
+        abort_unless(Gate::allows($this->viewAbility()), 403);
     }
 
     public function updatingSearch(): void { $this->resetPage(); }

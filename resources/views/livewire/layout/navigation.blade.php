@@ -54,6 +54,12 @@ new class extends Component
                 </x-nav-link>
             @endcan
 
+            @can('rules.manage')
+                <x-nav-link :href="route('pricing-rules')" :active="request()->routeIs('pricing-rules')" wire:navigate>
+                    Aturan Harga
+                </x-nav-link>
+            @endcan
+
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">

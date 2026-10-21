@@ -66,6 +66,9 @@
                                         @case('bool')
                                             {{ $v ? 'Ya' : 'Tidak' }}
                                             @break
+                                        @case('percent')
+                                            {{ $v !== null ? number_format((float) $v, 2, ',', '.').'%' : '-' }}
+                                            @break
                                         @case('date')
                                             {{ $v ? \Illuminate\Support\Carbon::parse($v)->format('d/m/Y') : '-' }}
                                             @break

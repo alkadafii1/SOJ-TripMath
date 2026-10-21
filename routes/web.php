@@ -13,6 +13,8 @@ use App\Livewire\Package\PackageIndex;
 use App\Livewire\Trip\TripForm;
 use App\Livewire\Trip\TripIndex;
 use App\Livewire\Trip\TripShow;
+use App\Livewire\Pricing\PricingRuleIndex;
+use App\Livewire\Trip\PricingPage;
 
 Route::view('/', 'welcome');
 
@@ -52,6 +54,11 @@ Route::middleware(['auth', 'permission:trip.view'])
         Route::get('create', TripForm::class)->name('create');
         Route::get('{trip}', TripShow::class)->name('show');
         Route::get('{trip}/edit', TripForm::class)->name('edit');
+        Route::get('{trip}/pricing', PricingPage::class)->name('pricing');
     });
+
+Route::middleware(['auth', 'permission:rules.manage'])->group(function () {
+        Route::get('pricing-rules', PricingRuleIndex::class)->name('pricing-rules');
+});
 
 require __DIR__.'/auth.php';

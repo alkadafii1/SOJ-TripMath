@@ -22,7 +22,7 @@ class TripCostService
     /** Hasil hitungan tanpa menyimpan apa pun (untuk ditampilkan). */
     public function summary(Trip $trip, string $field = 'standard_cost', ?string $revenue = null): array
     {
-        return $this->calculator->calculateTripCost((int) $trip->pax, $this->calcItems($trip), $field, $revenue);
+        return $this->calculator->calculateTripCost($trip->effectivePax(), $this->calcItems($trip), $field, $revenue);
     }
 
     /** Hitung ulang lalu simpan calculated_quantity tiap item. */

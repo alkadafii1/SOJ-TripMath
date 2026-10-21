@@ -62,6 +62,32 @@ class Options
         'archived' => 'Arsip',
     ];
 
+    public const PRICING_METHODS = [
+    'cost_plus_margin' => 'Cost Plus Margin',
+    'cost_plus_markup' => 'Cost Plus Markup',
+    ];
+
+    public const ROUNDING_RULES = [
+        'exact' => 'Tanpa pembulatan',
+        'nearest_5000' => 'Terdekat Rp5.000',
+        'nearest_10000' => 'Terdekat Rp10.000',
+        'nearest_50000' => 'Terdekat Rp50.000',
+        'nearest_100000' => 'Terdekat Rp100.000',
+    ];
+
+    public const PRICING_MODES = [
+        'dynamic' => 'Dinamis (biaya + margin)',
+        'package' => 'Harga paket',
+        'per_pax' => 'Per pax (Open Trip)',
+    ];
+
+    public const APPROVAL_STATUS = [
+        'none' => 'Belum diajukan',
+        'pending' => 'Menunggu persetujuan',
+        'approved' => 'Disetujui',
+        'rejected' => 'Ditolak',
+    ];
+
     /** Untuk aturan validasi: 'in:'.Options::keys(Options::STATUS) */
     public static function keys(array $options): string
     {

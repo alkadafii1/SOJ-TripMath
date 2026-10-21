@@ -77,6 +77,23 @@ class Trip extends Model
         return in_array($this->status, self::EDITABLE, true);
     }
 
+    /**
+ * Pax yang dipakai untuk menghitung biaya dan harga.
+ * Open Trip yang sudah punya confirmed pax memakai confirmed pax;
+ * selain itu memakai pax rencana (skenario).
+ */
+    public function effectivePax(): int
+    {
+        return ($this->trip_type === 'open_trip' && $this->confirmed_pax)
+            ? (int) $this->confirmed_pax
+            : (int) $this->pax;
+    }
+
+    public function pricing()
+    {
+        return $this->hasOne(TripPricing::class);
+    }
+
     public function canTransitionTo(string $to): bool
     {
         return in_array($to, self::TRANSITIONS[$this->status] ?? [], true);
