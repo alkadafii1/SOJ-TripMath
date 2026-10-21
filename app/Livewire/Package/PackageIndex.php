@@ -14,7 +14,7 @@ class PackageIndex extends MasterCrud
     protected function heading(): string { return 'Paket Wisata'; }
     protected function searchFields(): array { return ['name', 'trip_type']; }
     protected function manageAbility(): string { return 'package.manage'; }
-    protected function detailRoute(): ?string { return 'master.packages.show'; }
+    protected function detailRoute(): ?string { return 'packages.show'; }
     protected function tabs(): array { return []; }
 
     protected function fields(): array

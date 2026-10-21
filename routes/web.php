@@ -34,6 +34,9 @@ Route::middleware('auth')->group(function () {
         ->middleware('can:view-finance');
 });
 
+    Route::get('packages', PackageIndex::class)->name('packages');
+    Route::get('packages/{package}', PackageDetail::class)->name('packages.show');
+
 Route::middleware(['auth', 'permission:master.view'])
     ->prefix('master')->name('master.')->group(function () {
         Route::redirect('/', '/master/vendors');
@@ -44,8 +47,6 @@ Route::middleware(['auth', 'permission:master.view'])
         Route::get('activities', ActivityIndex::class)->name('activities');
         Route::get('meals', MealIndex::class)->name('meals');
         Route::get('cost-items', CostItemIndex::class)->name('cost-items');
-        Route::get('packages', PackageIndex::class)->name('packages');
-        Route::get('packages/{package}', PackageDetail::class)->name('packages.show');
     });
 
 Route::middleware(['auth', 'permission:trip.view'])

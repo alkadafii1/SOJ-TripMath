@@ -2,7 +2,7 @@
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
         <div>
-            <a href="{{ route('master.packages') }}" wire:navigate class="text-sm text-indigo-600 hover:underline">&larr; Semua paket</a>
+            <a href="{{ route('packages') }}" wire:navigate class="text-sm text-indigo-600 hover:underline">&larr; Semua paket</a>
             <h2 class="text-xl font-semibold text-gray-800 mt-1">{{ $package->name }}</h2>
             <p class="text-sm text-gray-500">
                 {{ \App\Support\Options::TRIP_TYPES[$package->trip_type] ?? $package->trip_type }}
