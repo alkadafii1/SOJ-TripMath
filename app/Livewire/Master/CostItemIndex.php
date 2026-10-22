@@ -32,7 +32,7 @@ class CostItemIndex extends MasterCrud
                 ['options' => Options::COST_BEHAVIOR, 'default' => 'variable',
                  'help' => 'Fixed tidak ikut berubah saat pax berubah.']),
             $this->f('standard_cost', 'Tarif standar (Rp)', 'money', ['required', 'numeric', 'min:0']),
-            $this->f('percentage', 'Persentase (%)', 'money', ['nullable', 'numeric', 'min:0', 'max:100'],
+            $this->f('percentage', 'Persentase (%)', 'percent', ['nullable', 'numeric', 'min:0', 'max:100'],
                 ['help' => 'Hanya untuk tipe biaya Percentage.']),
             $this->f('base_type', 'Dasar persentase', 'text', ['nullable', 'string', 'max:50'],
                 ['help' => 'Contoh: revenue.']),

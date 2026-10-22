@@ -351,4 +351,40 @@ class PricingTest extends TestCase
         $this->actingAs($this->staff)->get(route('pricing-rules'))->assertForbidden();
         $this->actingAs($this->owner)->get(route('pricing-rules'))->assertOk();
     }
+    public function test_peringatan_tarif_nol_muncul_di_halaman_harga(): void
+    {
+        $this->rule();
+        $trip = $this->trip();
+        $trip->costItems()->create([
+            'item_type' => 'cost_item', 'item_id' => 2, 'quantity' => 1,
+            'category' => 'Lainnya', 'item_name' => 'Parkir', 'cost_type' => 'per_trip',
+            'cost_behavior' => 'fixed', 'standard_cost' => 0,
+        ]);
+
+        $this->page($this->staff, $trip)
+            ->assertSee('masih bertarif Rp0')
+            ->assertSee('Parkir');
+    }
+
+    public function test_final_di_atas_rekomendasi_tidak_tampil_sebagai_diskon_negatif(): void
+    {
+        $this->rule();
+        $trip = $this->trip();
+
+        $this->negotiating($this->staff, $trip)
+            ->set('price.final', '9500000')
+            ->call('saveNegotiation')
+            ->assertSee('Di atas harga rekomendasi')
+            ->assertDontSee('Rp -');
+    }
+
+    public function test_aturan_harga_ganda_menampilkan_peringatan(): void
+    {
+        $this->rule();
+        $this->rule(['method' => 'cost_plus_markup', 'rate_percent' => 5]);
+
+        Livewire::actingAs($this->owner)
+            ->test(\App\Livewire\Pricing\PricingRuleIndex::class)
+            ->assertSee('aturan harga yang aktif bersamaan');
+    }
 }

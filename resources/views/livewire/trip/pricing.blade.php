@@ -3,6 +3,7 @@
     $pct = fn ($v) => \App\Support\Money::percent($v);
     $opt = \App\Support\Options::class;
     $plain = fn ($v) => ($v === null || $v === '') ? '' : (str_contains((string) $v, '.') ? rtrim(rtrim((string) $v, '0'), '.') : (string) $v);
+    $nice = fn ($v) => number_format((float) $v, 0, ',', '.');
     $std = $costs['standard'];
     $neg = $costs['negotiated'];
     $modeNow = $pricing?->pricing_mode ?? $mode;
@@ -57,6 +58,20 @@
             </div>
         </dl>
 
+        {{-- Peringatan tarif Rp0 --}}
+        @if (! empty($zeroCosts))
+            <div class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                <p class="font-medium">{{ count($zeroCosts) }} komponen masih bertarif Rp0</p>
+                <p class="mt-1">
+                    {{ implode(', ', array_slice($zeroCosts, 0, 5)) }}@if (count($zeroCosts) > 5), dan {{ count($zeroCosts) - 5 }} lainnya @endif
+                </p>
+                <p class="mt-1 text-amber-800">
+                    Biaya dan margin di halaman ini bisa tidak akurat. Tarif disalin saat trip dibuat, jadi mengisi tarif di Data Master tidak mengubah trip ini.
+                    Isi "Tarif negosiasi" di bawah, atau buat trip baru setelah tarif master terisi.
+                </p>
+            </div>
+        @endif
+
         {{-- 1. Negosiasi vendor --}}
         <div class="bg-white shadow sm:rounded-lg p-6 space-y-4">
             <div>
@@ -82,8 +97,10 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($items as $item)
-                                @php($sl = $std['lines'][$item->id]['amount'] ?? '0')
-                                @php($nl = $neg['lines'][$item->id]['amount'] ?? '0')
+                                @php
+                                    $sl = $std['lines'][$item->id]['amount'] ?? '0';
+                                    $nl = $neg['lines'][$item->id]['amount'] ?? '0';
+                                @endphp
                                 <tr wire:key="neg-{{ $item->id }}">
                                     <td class="px-3 py-2">
                                         {{ $item->item_name }}
@@ -97,10 +114,10 @@
                                         @if ($item->cost_type === 'percentage')
                                             -
                                         @elseif ($costEditable)
-                                            <input type="number" step="0.01" min="0"
-                                                   wire:model="negotiated.{{ $item->id }}"
-                                                   placeholder="{{ $plain($item->standard_cost) }}"
-                                                   class="w-36 rounded-md border-gray-300 text-sm text-right shadow-sm">
+                                            <div class="flex justify-end">
+                                                <x-money-input model="negotiated.{{ $item->id }}" class="w-44"
+                                                               placeholder="{{ $nice($item->standard_cost) }}" />
+                                            </div>
                                             @error('negotiated.'.$item->id)<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                         @else
                                             {{ $item->negotiated_cost !== null ? $rp($item->negotiated_cost) : 'sama dengan standar' }}
@@ -152,7 +169,9 @@
                 @if (! $preview)
                     <p class="text-sm text-amber-700">Belum ada aturan harga aktif. Minta Owner membuatnya di menu Aturan Harga.</p>
                 @else
-                    @php($rule = $preview['rule'])
+                    @php
+                        $rule = $preview['rule'];
+                    @endphp
                     <p class="text-sm text-gray-600">
                         Aturan aktif: <span class="font-medium">{{ $rule->method_label }} {{ $pct($rule->rate_percent) }}</span>,
                         {{ strtolower($rule->rounding_label) }},
@@ -160,7 +179,6 @@
                         @if ($rule->block_below_min) (diblokir bila di bawah batas)
                         @elseif ($rule->require_approval) (butuh persetujuan Owner bila di bawah batas)
                         @endif.
-                        Dasar hitung: Negotiated Cost.
                     </p>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -176,29 +194,30 @@
                         </div>
                         @if ($mode === 'package')
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Harga paket total (Rp)</label>
-                                <input type="number" step="0.01" min="0" wire:model.live.debounce.400ms="packagePrice"
-                                       class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                <label class="block text-sm font-medium text-gray-700">Harga paket total</label>
+                                <x-money-input model="packagePrice" :live="true" class="mt-1" />
                                 @error('packagePrice')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                             </div>
                         @endif
                     </div>
 
-                    <dl class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div class="rounded-md bg-indigo-50 p-4">
-                            <dt class="text-indigo-700">Recommended Price</dt>
-                            <dd class="text-2xl font-semibold text-indigo-900">{{ $preview['recommended'] !== null ? $rp($preview['recommended']) : '-' }}</dd>
+                            <dt class="text-indigo-700">Harga rekomendasi</dt>
+                            @if ($mode === 'per_pax' && $preview['rec']['per_pax'] !== null)
+                                <dd class="text-2xl font-semibold text-indigo-900">{{ $rp($preview['rec']['per_pax']) }} <span class="text-sm font-normal">per pax</span></dd>
+                                <dd class="text-xs text-indigo-700">Total {{ $preview['recommended'] !== null ? $rp($preview['recommended']) : '-' }} untuk {{ $pax }} pax</dd>
+                            @else
+                                <dd class="text-2xl font-semibold text-indigo-900">{{ $preview['recommended'] !== null ? $rp($preview['recommended']) : '-' }}</dd>
+                            @endif
+                            <dd class="mt-1 text-xs text-indigo-700">
+                                Dari biaya negosiasi {{ $rp($preview['rec']['cost']) }} dengan {{ $rule->method_label }} {{ $pct($rule->rate_percent) }}
+                            </dd>
                         </div>
                         @if ($mode === 'package')
                             <div class="rounded-md bg-gray-50 p-4">
                                 <dt class="text-gray-500">Saran mesin (biaya + margin)</dt>
                                 <dd class="font-semibold">{{ $rp($preview['rec']['engine_total']) }}</dd>
-                            </div>
-                        @endif
-                        @if ($preview['rec']['per_pax'] !== null && ($mode === 'per_pax' || $trip->trip_type === 'open_trip'))
-                            <div class="rounded-md bg-gray-50 p-4">
-                                <dt class="text-gray-500">Saran harga per pax</dt>
-                                <dd class="font-semibold">{{ $rp($preview['rec']['per_pax']) }}</dd>
                             </div>
                         @endif
                     </dl>
@@ -239,58 +258,83 @@
 
         {{-- 3. Negosiasi harga dengan customer --}}
         @if ($pricing && ! $inPreStage)
+            @php
+                $recPerPax = ($perPaxMode && $pax > 0) ? bcdiv((string) $pricing->recommended_price, (string) $pax, 2) : null;
+                $disc = $pricing->customer_discount;
+                $discSign = $disc === null ? null : bccomp((string) $disc, '0', 2);
+            @endphp
+
             <div class="bg-white shadow sm:rounded-lg p-6 space-y-5">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <h3 class="text-lg font-semibold text-gray-800">Negosiasi harga customer</h3>
                     <span class="text-xs text-gray-500">Mode: {{ $opt::PRICING_MODES[$pricing->pricing_mode] ?? $pricing->pricing_mode }}</span>
                 </div>
 
-                <p class="text-sm text-gray-600">
-                    Aturan saat negosiasi dimulai: {{ $opt::PRICING_METHODS[$pricing->pricing_method] ?? $pricing->pricing_method }} {{ $pct($pricing->rate_percent) }},
-                    {{ strtolower($opt::ROUNDING_RULES[$pricing->rounding_rule] ?? $pricing->rounding_rule) }},
-                    batas margin minimum {{ $pricing->min_margin_threshold !== null ? $pct($pricing->min_margin_threshold) : 'tidak diatur' }}.
-                </p>
-
                 <dl class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div class="rounded-md bg-indigo-50 p-4">
-                        <dt class="text-indigo-700">Recommended Price</dt>
-                        <dd class="text-2xl font-semibold text-indigo-900">{{ $rp($pricing->recommended_price) }}</dd>
-                        <dd class="text-xs text-indigo-700">Tidak berubah oleh harga final.</dd>
+                        <dt class="text-indigo-700">Harga rekomendasi</dt>
+                        @if ($recPerPax !== null)
+                            <dd class="text-2xl font-semibold text-indigo-900">{{ $rp($recPerPax) }} <span class="text-sm font-normal">per pax</span></dd>
+                            <dd class="text-xs text-indigo-700">Total {{ $rp($pricing->recommended_price) }} untuk {{ $pax }} pax</dd>
+                        @else
+                            <dd class="text-2xl font-semibold text-indigo-900">{{ $rp($pricing->recommended_price) }}</dd>
+                        @endif
+                        <dd class="mt-1 text-xs text-indigo-700">
+                            Dari biaya negosiasi {{ $rp($neg['total']) }} dengan
+                            {{ $opt::PRICING_METHODS[$pricing->pricing_method] ?? $pricing->pricing_method }} {{ $pct($pricing->rate_percent) }}.
+                            Tidak berubah oleh harga final.
+                        </dd>
                     </div>
+
                     <div class="rounded-md bg-gray-50 p-4">
-                        <dt class="text-gray-500">Final Price tersimpan</dt>
-                        <dd class="text-xl font-semibold">{{ $pricing->final_price !== null ? $rp($pricing->final_price) : '-' }}</dd>
-                        @if ($perPaxMode && $pricing->price_per_pax !== null)
-                            <dd class="text-xs text-gray-500">{{ $rp($pricing->price_per_pax) }} per pax</dd>
+                        <dt class="text-gray-500">Harga final tersimpan</dt>
+                        @if ($pricing->final_price === null)
+                            <dd class="text-xl font-semibold">-</dd>
+                        @elseif ($perPaxMode && $pricing->price_per_pax !== null)
+                            <dd class="text-xl font-semibold">{{ $rp($pricing->price_per_pax) }} <span class="text-sm font-normal">per pax</span></dd>
+                            <dd class="text-xs text-gray-500">Total {{ $rp($pricing->final_price) }} untuk {{ $pax }} pax</dd>
+                        @else
+                            <dd class="text-xl font-semibold">{{ $rp($pricing->final_price) }}</dd>
                         @endif
                     </div>
-                    <div class="rounded-md bg-gray-50 p-4">
-                        <dt class="text-gray-500">Customer Discount</dt>
-                        <dd class="text-xl font-semibold">{{ $pricing->customer_discount !== null ? $rp($pricing->customer_discount) : '-' }}</dd>
-                        <dd class="text-xs text-gray-500">Recommended dikurangi Final.</dd>
+
+                    <div class="rounded-md p-4 {{ $discSign !== null && $discSign < 0 ? 'bg-green-50' : 'bg-gray-50' }}">
+                        @if ($discSign === null)
+                            <dt class="text-gray-500">Selisih dengan rekomendasi</dt>
+                            <dd class="text-xl font-semibold">-</dd>
+                        @elseif ($discSign > 0)
+                            <dt class="text-gray-500">Diskon untuk customer</dt>
+                            <dd class="text-xl font-semibold">{{ $rp($disc) }}</dd>
+                            <dd class="text-xs text-gray-500">Harga final lebih rendah dari rekomendasi.</dd>
+                        @elseif ($discSign < 0)
+                            <dt class="text-green-700">Di atas harga rekomendasi</dt>
+                            <dd class="text-xl font-semibold text-green-900">+{{ $rp(bcmul((string) $disc, '-1', 2)) }}</dd>
+                            <dd class="text-xs text-green-700">Tidak ada diskon.</dd>
+                        @else
+                            <dt class="text-gray-500">Selisih dengan rekomendasi</dt>
+                            <dd class="text-xl font-semibold">Rp 0</dd>
+                            <dd class="text-xs text-gray-500">Sama dengan rekomendasi.</dd>
+                        @endif
                     </div>
                 </dl>
 
                 <form wire:submit="saveNegotiation" class="space-y-4">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Quoted Price ({{ $perPaxMode ? 'per pax' : 'total' }})</label>
-                            <input type="number" step="0.01" min="0" wire:model="price.quoted" @disabled(! $priceEditable)
-                                   class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm disabled:bg-gray-100">
+                            <label class="block text-sm font-medium text-gray-700">Harga ditawarkan ({{ $perPaxMode ? 'per pax' : 'total' }})</label>
+                            <x-money-input model="price.quoted" :disabled="! $priceEditable" class="mt-1" />
                             <p class="mt-1 text-xs text-gray-500">{{ $totalHint($price['quoted'] ?? '') }}</p>
                             @error('price.quoted')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Harga yang diminta customer ({{ $perPaxMode ? 'per pax' : 'total' }})</label>
-                            <input type="number" step="0.01" min="0" wire:model="price.requested" @disabled(! $priceEditable)
-                                   class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm disabled:bg-gray-100">
+                            <x-money-input model="price.requested" :disabled="! $priceEditable" class="mt-1" />
                             <p class="mt-1 text-xs text-gray-500">{{ $totalHint($price['requested'] ?? '') }}</p>
                             @error('price.requested')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Final Price ({{ $perPaxMode ? 'per pax' : 'total' }})</label>
-                            <input type="number" step="0.01" min="0" wire:model.live.debounce.400ms="price.final" @disabled(! $priceEditable)
-                                   class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm disabled:bg-gray-100">
+                            <label class="block text-sm font-medium text-gray-700">Harga final yang disepakati ({{ $perPaxMode ? 'per pax' : 'total' }})</label>
+                            <x-money-input model="price.final" :live="true" :disabled="! $priceEditable" class="mt-1" />
                             <p class="mt-1 text-xs text-gray-500">{{ $totalHint($price['final'] ?? '') }}</p>
                             @error('price.final')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
@@ -298,7 +342,7 @@
 
                     @if ($pricing->final_price !== null && $priceEditable)
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Alasan bila mengubah Final Price</label>
+                            <label class="block text-sm font-medium text-gray-700">Alasan bila mengubah harga final</label>
                             <input type="text" wire:model="price.change_reason" placeholder="Contoh: negosiasi dengan customer"
                                    class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                             @error('price.change_reason')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
@@ -335,7 +379,7 @@
                         <div class="rounded-md border-2 border-dashed border-amber-400 bg-amber-50 p-4">
                             <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Estimasi (bukan Actual Profit)</p>
                             <dl class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                                <div><dt class="text-amber-800">Harga (pratinjau)</dt><dd class="font-semibold">{{ $rp(bcadd((string) $evalFinal['cost'], (string) $evalFinal['profit'], 2)) }}</dd></div>
+                                <div><dt class="text-amber-800">Total harga (pratinjau)</dt><dd class="font-semibold">{{ $rp(bcadd((string) $evalFinal['cost'], (string) $evalFinal['profit'], 2)) }}</dd></div>
                                 <div><dt class="text-amber-800">Estimated Profit</dt><dd class="font-semibold">{{ $rp($evalFinal['profit']) }}</dd></div>
                                 <div><dt class="text-amber-800">Estimated Margin</dt><dd class="font-semibold">{{ $pct($evalFinal['margin'] ?? 0) }}</dd></div>
                                 <div><dt class="text-amber-800">Profit per orang</dt><dd class="font-semibold">{{ $evalFinal['profit_per_pax'] !== null ? $rp($evalFinal['profit_per_pax']) : '-' }}</dd></div>
@@ -345,9 +389,14 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Berlaku sampai (masa berlaku penawaran)</label>
-                            <input type="date" wire:model="price.quote_valid_until" @disabled(! $priceEditable)
+                            <label class="block text-sm font-medium text-gray-700">Penawaran berlaku sampai</label>
+                            <input type="date" wire:model.live="price.quote_valid_until" @disabled(! $priceEditable)
                                    class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm disabled:bg-gray-100">
+                            @if (! empty($price['quote_valid_until']))
+                                <p class="mt-1 text-xs text-gray-500">
+                                    {{ rescue(fn () => \Carbon\Carbon::parse($price['quote_valid_until'])->locale('id')->translatedFormat('l, j F Y'), '') }}
+                                </p>
+                            @endif
                             @error('price.quote_valid_until')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
@@ -373,7 +422,7 @@
                 </form>
 
                 {{-- Persetujuan --}}
-                @if ($inNegotiation = ($trip->status === 'negotiation'))
+                @if ($trip->status === 'negotiation')
                     @if ($pricing->require_approval && ! $pricing->block_below_min && $evalSaved && $evalSaved['below_min'])
                         <div class="rounded-md border border-gray-200 p-4 space-y-3 text-sm">
                             <p class="font-medium text-gray-800">

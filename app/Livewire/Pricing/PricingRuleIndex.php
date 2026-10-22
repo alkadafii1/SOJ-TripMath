@@ -26,7 +26,7 @@ class PricingRuleIndex extends MasterCrud
                 ['required', 'in:'.Options::keys(Options::PRICING_METHODS)],
                 ['options' => Options::PRICING_METHODS, 'default' => 'cost_plus_margin',
                  'help' => 'Margin dan markup berbeda: margin dihitung dari harga jual, markup dari biaya.']),
-            $this->f('rate_percent', 'Target margin / markup (%)', 'money', [
+            $this->f('rate_percent', 'Target margin / markup (%)', 'percent', [
                 'required', 'numeric', 'min:0',
                 function ($attribute, $value, $fail) {
                     if (($this->form['method'] ?? null) === 'cost_plus_margin' && (float) $value >= 100) {
@@ -37,7 +37,7 @@ class PricingRuleIndex extends MasterCrud
             $this->f('rounding_rule', 'Pembulatan harga jual', 'select',
                 ['required', 'in:'.Options::keys(Options::ROUNDING_RULES)],
                 ['options' => Options::ROUNDING_RULES, 'default' => 'exact']),
-            $this->f('min_margin_threshold', 'Batas margin minimum (%)', 'money',
+            $this->f('min_margin_threshold', 'Batas margin minimum (%)', 'percent',
                 ['nullable', 'numeric', 'min:0', 'max:99.99'],
                 ['help' => 'Kosongkan bila tidak ada batas.']),
             $this->f('block_below_min', 'Blokir bila di bawah batas', 'checkbox', ['boolean'],
@@ -66,5 +66,23 @@ class PricingRuleIndex extends MasterCrud
     protected function isInUse(Model $model): bool
     {
         return TripPricing::where('pricing_rule_id', $model->id)->exists();
+    }
+
+    protected function notice(): ?string
+    {
+    $active = PricingRule::effectiveOn(now()->toDateString())
+        ->orderByDesc('effective_from')
+        ->orderByDesc('id')
+        ->get();
+
+    if ($active->count() < 2) {
+        return null;
+    }
+
+    $used = $active->first();
+
+    return 'Ada '.$active->count().' aturan harga yang aktif bersamaan. Sistem memakai yang paling baru ('
+        .$used->method_label.' '.number_format((float) $used->rate_percent, 2, ',', '.').'%). '
+        .'Nonaktifkan aturan yang tidak dipakai agar tidak membingungkan.';
     }
 }

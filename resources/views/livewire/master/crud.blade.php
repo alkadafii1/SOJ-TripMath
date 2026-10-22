@@ -30,6 +30,9 @@
         @if (session('error'))
             <div class="rounded-md bg-red-50 p-3 text-sm text-red-800">{{ session('error') }}</div>
         @endif
+        @if ($notice)
+            <div class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{{ $notice }}</div>
+        @endif
 
         {{-- Pencarian dan filter --}}
         <div class="flex flex-wrap gap-3">
@@ -61,13 +64,13 @@
                                 <td class="px-4 py-3 {{ ($col['type'] ?? '') === 'money' ? 'text-right' : '' }}">
                                     @switch($col['type'] ?? 'text')
                                         @case('money')
-                                            {{ $v !== null ? 'Rp '.number_format((float) $v, 0, ',', '.') : '-' }}
+                                            {{ $v !== null ? number_format((float) $v, 2, ',', '.') : '-' }}
+                                            @break
+                                        @case('percent')
+                                            {{ $v !== null ? number_format((float) $v, 2, ',', '.') . '%' : '-' }}
                                             @break
                                         @case('bool')
                                             {{ $v ? 'Ya' : 'Tidak' }}
-                                            @break
-                                        @case('percent')
-                                            {{ $v !== null ? number_format((float) $v, 2, ',', '.').'%' : '-' }}
                                             @break
                                         @case('date')
                                             {{ $v ? \Illuminate\Support\Carbon::parse($v)->format('d/m/Y') : '-' }}
@@ -147,8 +150,14 @@
                                            class="mt-2 rounded border-gray-300 text-indigo-600 shadow-sm">
                                     @break
                                 @case('money')
-                                    <input type="number" step="0.01" min="0" wire:model="form.{{ $f['name'] }}"
-                                           class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                    <x-money-input model="form.{{ $f['name'] }}" class="mt-1" />
+                                    @break
+                                @case('percent')
+                                    <div class="relative mt-1">
+                                        <input type="number" step="0.01" min="0" wire:model="form.{{ $f['name'] }}"
+                                               class="w-full rounded-md border-gray-300 pr-8 text-sm shadow-sm">
+                                        <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-gray-500">%</span>
+                                    </div>
                                     @break
                                 @case('number')
                                     <input type="number" step="1" min="0" wire:model="form.{{ $f['name'] }}"

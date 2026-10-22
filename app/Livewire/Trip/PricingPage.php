@@ -493,65 +493,71 @@ class PricingPage extends Component
 
     // tampilan
 
-    public function render()
-    {
-        $svc = $this->svc();
-        $trip = $this->trip;
-        $pricing = $this->pricingRow();
-        $pax = $trip->effectivePax();
-        $canNegotiate = Gate::allows('pricing.negotiate');
+public function render()
+{
+    $svc = $this->svc();
+    $trip = $this->trip;
+    $pricing = $this->pricingRow();
+    $pax = $trip->effectivePax();
+    $canNegotiate = Gate::allows('pricing.negotiate');
 
-        $preview = null;
-        if (in_array($trip->status, ['draft', 'estimated'], true) && ($rule = $svc->activeRule())) {
-            $rec = $svc->recommend($trip, $rule->method, (string) $rule->rate_percent, $rule->rounding_rule, $this->mode);
-            $recommended = $this->mode === 'package'
-                ? ($this->validMoney($this->packagePrice) ? bcadd($this->packagePrice, '0', 2) : null)
-                : $rec['recommended'];
-            $threshold = $rule->min_margin_threshold === null ? null : (string) $rule->min_margin_threshold;
+    $preview = null;
+    if (in_array($trip->status, ['draft', 'estimated'], true) && ($rule = $svc->activeRule())) {
+        $rec = $svc->recommend($trip, $rule->method, (string) $rule->rate_percent, $rule->rounding_rule, $this->mode);
+        $recommended = $this->mode === 'package'
+            ? ($this->validMoney($this->packagePrice) ? bcadd($this->packagePrice, '0', 2) : null)
+            : $rec['recommended'];
+        $threshold = $rule->min_margin_threshold === null ? null : (string) $rule->min_margin_threshold;
 
-            $preview = [
-                'rule' => $rule,
-                'rec' => $rec,
-                'recommended' => $recommended,
-                'eval' => ($recommended !== null && bccomp($recommended, '0', 2) > 0)
-                    ? $svc->evaluate($trip, $recommended, $threshold)
-                    : null,
-            ];
-        }
-
-        $evalFinal = $evalSaved = $problem = null;
-        if ($pricing) {
-            $threshold = $this->threshold($pricing);
-            $perPax = $pricing->pricing_mode === 'per_pax';
-
-            $typed = trim((string) ($this->price['final'] ?? ''));
-            $previewFinal = $this->validMoney($typed)
-                ? ($perPax ? bcmul($typed, (string) $pax, 2) : bcadd($typed, '0', 2))
-                : ($pricing->final_price !== null ? (string) $pricing->final_price : null);
-
-            if ($previewFinal !== null && bccomp($previewFinal, '0', 2) > 0) {
-                $evalFinal = $svc->evaluate($trip, $previewFinal, $threshold, (string) $pricing->recommended_price);
-            }
-            if ($pricing->final_price !== null) {
-                $evalSaved = $svc->evaluate($trip, (string) $pricing->final_price, $threshold);
-            }
-            $problem = $svc->confirmationProblem($trip, $pricing);
-        }
-
-        return view('livewire.trip.pricing', [
-            'pricing' => $pricing,
-            'costs' => $svc->costTotals($trip),
-            'items' => $trip->costItems()->active()->orderBy('category')->orderBy('id')->get(),
-            'pax' => $pax,
-            'costEditable' => $canNegotiate && in_array($trip->status, ['draft', 'estimated'], true),
-            'priceEditable' => $canNegotiate && $trip->status === 'negotiation' && $pricing !== null,
-            'canNegotiate' => $canNegotiate,
-            'canApprove' => Gate::allows('pricing.approve'),
-            'showProfit' => Gate::allows('view-finance'),
-            'preview' => $preview,
-            'evalFinal' => $evalFinal,
-            'evalSaved' => $evalSaved,
-            'problem' => $problem,
-        ]);
+        $preview = [
+            'rule' => $rule,
+            'rec' => $rec,
+            'recommended' => $recommended,
+            'eval' => ($recommended !== null && bccomp($recommended, '0', 2) > 0)
+                ? $svc->evaluate($trip, $recommended, $threshold)
+                : null,
+        ];
     }
+
+    $evalFinal = $evalSaved = $problem = null;
+    if ($pricing) {
+        $threshold = $this->threshold($pricing);
+        $perPax = $pricing->pricing_mode === 'per_pax';
+
+        $typed = trim((string) ($this->price['final'] ?? ''));
+        $previewFinal = $this->validMoney($typed)
+            ? ($perPax ? bcmul($typed, (string) $pax, 2) : bcadd($typed, '0', 2))
+            : ($pricing->final_price !== null ? (string) $pricing->final_price : null);
+
+        if ($previewFinal !== null && bccomp($previewFinal, '0', 2) > 0) {
+            $evalFinal = $svc->evaluate($trip, $previewFinal, $threshold, (string) $pricing->recommended_price);
+        }
+        if ($pricing->final_price !== null) {
+            $evalSaved = $svc->evaluate($trip, (string) $pricing->final_price, $threshold);
+        }
+        $problem = $svc->confirmationProblem($trip, $pricing);
+    }
+
+    return view('livewire.trip.pricing', [
+        'pricing' => $pricing,
+        'costs' => $svc->costTotals($trip),
+        'items' => $trip->costItems()->active()->orderBy('category')->orderBy('id')->get(),
+        'pax' => $pax,
+        'costEditable' => $canNegotiate && in_array($trip->status, ['draft', 'estimated'], true),
+        'priceEditable' => $canNegotiate && $trip->status === 'negotiation' && $pricing !== null,
+        'canNegotiate' => $canNegotiate,
+        'zeroCosts' => $trip->costItems()->active()
+            ->where('cost_type', '!=', 'percentage')
+            ->where('standard_cost', '<=', 0)
+            ->where(fn ($q) => $q->whereNull('negotiated_cost')->orWhere('negotiated_cost', '<=', 0))
+            ->pluck('item_name')
+            ->all(),
+        'canApprove' => Gate::allows('pricing.approve'),
+        'showProfit' => Gate::allows('view-finance'),
+        'preview' => $preview,
+        'evalFinal' => $evalFinal,
+        'evalSaved' => $evalSaved,
+        'problem' => $problem,
+    ]);
+}
 }

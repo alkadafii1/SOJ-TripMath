@@ -34,6 +34,7 @@ abstract class MasterCrud extends Component
     protected function searchFields(): array { return ['name']; }
     protected function relations(): array { return []; }
     protected function isInUse(Model $model): bool { return false; }
+    protected function notice(): ?string { return null; }
 
     // ---- Pembantu penyusun field ----
     protected function f(string $name, string $label, string $type = 'text', array $rules = [], array $extra = []): array
@@ -285,6 +286,7 @@ abstract class MasterCrud extends Component
             'tabs' => $this->tabs(),
             'currentTab' => $this->entity(),
             'rateLabels' => $rateLabels,
+            'notice' => $this->notice(),
             'canManage' => Gate::allows($this->manageAbility()),
             'detailRoute' => $this->detailRoute(),
         ])->layout('layouts.app');
