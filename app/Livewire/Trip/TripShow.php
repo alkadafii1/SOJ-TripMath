@@ -18,12 +18,20 @@ class TripShow extends Component
 {
     public Trip $trip;
 
-    public array $itemForm = ['item_type' => '', 'item_id' => '', 'quantity' => 1];
+    // a. Tambah people_count di properti
+    public array $itemForm = ['item_type' => '', 'item_id' => '', 'quantity' => 1, 'people_count' => ''];
 
     public ?int $editingId = null;
+    
+    // a. Tambah people_count di array edit
     public array $edit = [
-        'quantity' => 1, 'duration_qty' => null, 'override_quantity' => null,
-        'override_reason' => '', 'is_required' => true, 'notes' => null,
+        'quantity' => 1, 
+        'people_count' => null, 
+        'duration_qty' => null, 
+        'override_quantity' => null,
+        'override_reason' => '', 
+        'is_required' => true, 
+        'notes' => null,
     ];
 
     public bool $showCancel = false;
@@ -68,6 +76,8 @@ class TripShow extends Component
             'itemForm.item_type' => ['required', 'in:'.Options::keys(Options::ITEM_TYPES)],
             'itemForm.item_id' => ['required', 'integer'],
             'itemForm.quantity' => ['required', 'numeric', 'gt:0'],
+            // b. Tambah aturan validasi people_count
+            'itemForm.people_count' => ['nullable', 'integer', 'min:1', 'max:'.$this->trip->effectivePax()],
         ]);
 
         $class = Relation::getMorphedModel($this->itemForm['item_type']);
@@ -79,7 +89,17 @@ class TripShow extends Component
 
         DB::transaction(function () use ($master, $costs) {
             $attributes = TripItemFactory::make($this->itemForm['item_type'], $master, $this->trip);
-            $item = $this->trip->costItems()->create($attributes + ['quantity' => $this->itemForm['quantity']]);
+            
+            // b. Logika penentuan people_count & cost_behavior
+            $people = ($attributes['cost_type'] === 'per_person' && ! $this->blank($this->itemForm['people_count']))
+                ? (int) $this->itemForm['people_count']
+                : null;
+
+            $item = $this->trip->costItems()->create(array_merge($attributes, [
+                'quantity' => $this->itemForm['quantity'],
+                'people_count' => $people,
+                'cost_behavior' => $people !== null ? 'fixed' : $attributes['cost_behavior'],
+            ]));
 
             $costs->recalculate($this->trip);
 
@@ -90,7 +110,8 @@ class TripShow extends Component
             ]);
         });
 
-        $this->itemForm = ['item_type' => '', 'item_id' => '', 'quantity' => 1];
+        // b. Reset form beserta people_count
+        $this->itemForm = ['item_type' => '', 'item_id' => '', 'quantity' => 1, 'people_count' => ''];
     }
 
     public function startEdit(int $id): void
@@ -100,6 +121,8 @@ class TripShow extends Component
         $this->editingId = $item->id;
         $this->edit = [
             'quantity' => $this->trimNumber($item->quantity),
+            // c. Ambil data people_count dari database
+            'people_count' => $item->people_count,
             'duration_qty' => $this->trimNumber($item->duration_qty),
             'override_quantity' => $this->trimNumber($item->override_quantity),
             'override_reason' => $item->override_reason ?? '',
@@ -125,6 +148,8 @@ class TripShow extends Component
 
         $this->validate([
             'edit.quantity' => ['required', 'numeric', 'gt:0'],
+            // d. Tambah aturan validasi people_count saat edit
+            'edit.people_count' => ['nullable', 'integer', 'min:1', 'max:'.$this->trip->effectivePax()],
             'edit.duration_qty' => ['nullable', 'numeric', 'min:0'],
             'edit.override_quantity' => ['nullable', 'integer', 'min:1'],
             'edit.override_reason' => ['nullable', 'string', 'max:500'],
@@ -143,8 +168,19 @@ class TripShow extends Component
             return;
         }
 
+        // d. Logika penentuan people_count & cost_behavior untuk edit
+        $people = ($item->cost_type === 'per_person' && ! $this->blank($this->edit['people_count']))
+            ? (int) $this->edit['people_count']
+            : null;
+
         $new = [
             'quantity' => $this->edit['quantity'],
+            // d. Tambah people_count dan cost_behavior di array $new
+            'people_count' => $people,
+            'cost_behavior' => $item->cost_type !== 'per_person'
+                ? $item->cost_behavior
+                : ($people !== null ? 'fixed' : ($item->people_count !== null ? 'variable' : $item->cost_behavior)),
+                
             'duration_qty' => in_array($item->cost_type, ['per_room', 'per_night', 'per_day'], true)
                 ? ($this->blank($this->edit['duration_qty']) ? null : $this->edit['duration_qty'])
                 : $item->duration_qty,

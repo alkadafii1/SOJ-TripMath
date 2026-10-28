@@ -61,10 +61,10 @@
                         <tr wire:key="row-{{ $row->id }}">
                             @foreach ($columns as $col)
                                 @php($v = data_get($row, $col['key']))
-                                <td class="px-4 py-3 {{ ($col['type'] ?? '') === 'money' ? 'text-right' : '' }}">
+                                <td class="px-4 py-3 {{ ($col['type'] ?? '') === 'money' ? 'text-left' : '' }}">
                                     @switch($col['type'] ?? 'text')
                                         @case('money')
-                                            {{ $v !== null ? number_format((float) $v, 2, ',', '.') : '-' }}
+                                            Rp {{ $v !== null ? number_format((float) $v, 0, ',', '.') : '-' }}
                                             @break
                                         @case('percent')
                                             {{ $v !== null ? number_format((float) $v, 2, ',', '.') . '%' : '-' }}

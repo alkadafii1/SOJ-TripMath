@@ -39,6 +39,8 @@ class TripForm extends Component
                 'start_date' => $trip->start_date->format('Y-m-d'),
                 'end_date' => $trip->end_date->format('Y-m-d'),
                 'pax' => $trip->pax,
+                // a. Tambah entri nights di mode ubah
+                'nights' => $trip->nights === max($trip->duration_days - 1, 0) ? null : $trip->nights,
                 'min_pax' => $trip->min_pax,
                 'max_capacity' => $trip->max_capacity,
                 'confirmed_pax' => $trip->confirmed_pax,
@@ -57,7 +59,10 @@ class TripForm extends Component
         $this->form = [
             'trip_name' => null, 'customer_name' => null, 'customer_contact' => null,
             'trip_type' => 'private', 'start_date' => null, 'end_date' => null,
-            'pax' => 2, 'min_pax' => null, 'max_capacity' => null, 'confirmed_pax' => null,
+            'pax' => 2, 
+            // b. Tambah nights di mode baru
+            'nights' => null, 
+            'min_pax' => null, 'max_capacity' => null, 'confirmed_pax' => null,
             'assigned_staff_id' => null, 'assigned_partner_id' => null, 'notes' => null,
         ];
     }
@@ -72,6 +77,8 @@ class TripForm extends Component
             'form.start_date' => ['required', 'date'],
             'form.end_date' => ['required', 'date', 'after_or_equal:form.start_date'],
             'form.pax' => ['required', 'integer', 'min:1', 'max:500'],
+            // c. Tambah aturan validasi nights
+            'form.nights' => ['nullable', 'integer', 'min:0', 'max:60'],
             'form.min_pax' => ['nullable', 'integer', 'min:1'],
             'form.max_capacity' => ['nullable', 'integer', 'min:1'],
             'form.confirmed_pax' => ['nullable', 'integer', 'min:0'],
@@ -115,6 +122,15 @@ class TripForm extends Component
         }
 
         $duration = Trip::daysBetween($data['start_date'], $data['end_date']);
+        
+        // d. Logika Penentuan Jumlah Malam (Nights)
+        $nights = ($data['nights'] ?? null) !== null ? (int) $data['nights'] : max($duration - 1, 0);
+        if ($nights > $duration) {
+            $this->addError('form.nights', 'Jumlah malam tidak boleh lebih banyak dari jumlah hari ('.$duration.').');
+            return;
+        }
+        $data['nights'] = $nights;
+
         $destinationIds = array_map('intval', $this->destinationIds);
 
         if ($isNew) {
@@ -165,7 +181,9 @@ class TripForm extends Component
             foreach (array_keys($dirty) as $key) {
                 $old[$key] = $trip->getRawOriginal($key);
             }
-            $durationChanged = array_key_exists('duration_days', $dirty);
+            
+            // e. Perubahan nights juga memicu hitung ulang durasi komponen hotel
+            $durationChanged = array_key_exists('duration_days', $dirty) || array_key_exists('nights', $dirty);
 
             DB::transaction(function () use ($trip, $dirty, $old, $durationChanged, $destinationIds, $trips, $costs) {
                 $trip->save();

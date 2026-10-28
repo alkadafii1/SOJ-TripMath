@@ -34,8 +34,8 @@ Route::middleware('auth')->group(function () {
         ->middleware('can:view-finance');
 });
 
-    Route::get('packages', PackageIndex::class)->name('packages');
-    Route::get('packages/{package}', PackageDetail::class)->name('packages.show');
+Route::get('packages', PackageIndex::class)->name('packages');
+Route::get('packages/{package}', PackageDetail::class)->name('packages.show');
 
 Route::middleware(['auth', 'permission:master.view'])
     ->prefix('master')->name('master.')->group(function () {
@@ -59,7 +59,7 @@ Route::middleware(['auth', 'permission:trip.view'])
     });
 
 Route::middleware(['auth', 'permission:rules.manage'])->group(function () {
-        Route::get('pricing-rules', PricingRuleIndex::class)->name('pricing-rules');
+    Route::get('pricing-rules', PricingRuleIndex::class)->name('pricing-rules');
 });
 
 require __DIR__.'/auth.php';

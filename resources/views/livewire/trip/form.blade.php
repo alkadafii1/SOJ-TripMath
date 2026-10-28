@@ -54,13 +54,29 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700">Tanggal mulai <span class="text-red-500">*</span></label>
-                <input type="date" wire:model="form.start_date" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                {{-- Diubah menjadi wire:model.live --}}
+                <input type="date" wire:model.live="form.start_date" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                 @error('form.start_date')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700">Tanggal selesai <span class="text-red-500">*</span></label>
-                <input type="date" wire:model="form.end_date" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                {{-- Diubah menjadi wire:model.live --}}
+                <input type="date" wire:model.live="form.end_date" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                 @error('form.end_date')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+            </div>
+
+            {{-- Tambahan Blok Jumlah Malam --}}
+            <div class="sm:col-span-2">
+                <label class="block text-sm font-medium text-gray-700">Jumlah malam</label>
+                <input type="number" min="0" max="60" wire:model="form.nights"
+                       placeholder="Otomatis"
+                       class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                <p class="mt-1 text-xs text-gray-500">
+                    {{ (! empty($form['start_date']) && ! empty($form['end_date']))
+                        ? 'Kosongkan untuk otomatis: '.rescue(fn () => max(\App\Models\Trip::daysBetween($form['start_date'], $form['end_date']) - 1, 0), '-').' malam. Isi sendiri bila berbeda, misalnya trip 1 hari 1 malam.'
+                        : 'Kosongkan untuk otomatis (jumlah hari dikurangi 1). Isi sendiri bila berbeda, misalnya trip 1 hari 1 malam.' }}
+                </p>
+                @error('form.nights')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
             </div>
 
             @if (($form['trip_type'] ?? '') === 'open_trip')

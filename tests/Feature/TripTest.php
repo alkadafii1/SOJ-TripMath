@@ -85,13 +85,13 @@ class TripTest extends TestCase
         $this->assertSame(2, $trip->costItems()->count());
 
         $hotelItem = $trip->costItems()->where('item_type', 'hotel')->first();
-        $this->assertEquals(2, (float) $hotelItem->calculated_quantity); // 4 pax / 2 per kamar
-        $this->assertEquals(1, (float) $hotelItem->duration_qty);        // 2 hari = 1 malam
-        $this->assertEquals(500000, (float) $hotelItem->standard_cost);
+        $this->assertEquals(2.0, (float) $hotelItem->calculated_quantity); // 4 pax / 2 per kamar
+        $this->assertEquals(1.0, (float) $hotelItem->duration_qty);        // 2 hari = 1 malam
+        $this->assertEquals(500000.0, (float) $hotelItem->standard_cost);
 
         // Tarif master berubah, trip lama TIDAK berubah
         $hotel->update(['standard_rate' => 999999]);
-        $this->assertEquals(500000, (float) $hotelItem->fresh()->standard_cost);
+        $this->assertEquals(500000.0, (float) $hotelItem->fresh()->standard_cost);
     }
 
     public function test_kode_trip_berurutan(): void
@@ -117,7 +117,7 @@ class TripTest extends TestCase
             ->assertHasNoErrors();
 
         $hotelItem = $trip->costItems()->where('item_type', 'hotel')->first();
-        $this->assertEquals(3, (float) $hotelItem->calculated_quantity); // 6 pax = 3 kamar
+        $this->assertEquals(3.0, (float) $hotelItem->calculated_quantity); // 6 pax = 3 kamar
         $this->assertDatabaseHas('audit_logs', ['entity' => 'trip', 'entity_id' => $trip->id, 'action' => 'updated']);
     }
 
@@ -176,13 +176,13 @@ class TripTest extends TestCase
             ->assertHasNoErrors();
 
         $fresh = $hotelItem->fresh();
-        $this->assertEquals(3, (float) $fresh->override_quantity);
-        $this->assertEquals(2, (float) $fresh->calculated_quantity); // nilai hitungan tetap tersimpan
+        $this->assertEquals(3.0, (float) $fresh->override_quantity);
+        $this->assertEquals(2.0, (float) $fresh->calculated_quantity); // nilai hitungan tetap tersimpan
         $this->assertSame($staff->id, $fresh->overridden_by);
 
         $log = AuditLog::where('entity', 'trip_cost_item')->where('action', 'updated')->latest('id')->first();
         $this->assertSame('Tamu minta kamar terpisah', $log->reason);
-        $this->assertEquals(2, $log->new_value['calculated_quantity']);
+        $this->assertEquals(2.0, (float) $log->new_value['calculated_quantity']);
     }
 
     public function test_pembatalan_wajib_alasan_dan_hanya_untuk_yang_berizin(): void
@@ -223,5 +223,95 @@ class TripTest extends TestCase
         $this->actingAs($owner)->get(route('trips.show', $trip->id))
             ->assertOk()
             ->assertSee('Total Standard Cost');
+    }
+
+    public function test_trip_satu_hari_satu_malam_menghitung_hotel_satu_malam(): void
+    {
+        [$version] = $this->versionWithItems();
+
+        $trip = $this->createTrip($this->userWithRole('staff'), $version->id, [
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-11-01', // tanggal sama
+            'nights' => 1,
+        ]);
+
+        $this->assertSame(1, $trip->duration_days);
+        $this->assertSame(1, $trip->nights);
+        $hotel = $trip->costItems()->where('item_type', 'hotel')->first();
+        $this->assertEquals(1.0, (float) $hotel->duration_qty);
+    }
+
+    public function test_trip_tiga_hari_malam_otomatis_dua(): void
+    {
+        $trip = $this->createTrip($this->userWithRole('staff'), null, [
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-11-03',
+        ]);
+
+        $this->assertSame(3, $trip->duration_days);
+        $this->assertSame(2, $trip->nights);
+    }
+
+    public function test_jumlah_malam_tidak_boleh_melebihi_jumlah_hari(): void
+    {
+        Livewire::actingAs($this->userWithRole('staff'))
+            ->test(TripForm::class)
+            ->set('form.trip_name', 'Tes')
+            ->set('form.customer_name', 'Budi')
+            ->set('form.trip_type', 'private')
+            ->set('form.start_date', '2026-11-01')
+            ->set('form.end_date', '2026-11-01')
+            ->set('form.pax', 4)
+            ->set('form.nights', 2)
+            ->call('save')
+            ->assertHasErrors(['form.nights']);
+    }
+
+    // ==========================================
+    // TAMBAHAN TEST UNTUK FITUR PEOPLE COUNT
+    // ==========================================
+
+    public function test_tambah_biaya_per_orang_dengan_jumlah_tertentu(): void
+    {
+        [, , $dest] = $this->versionWithItems();
+        $staff = $this->userWithRole('staff');
+        $trip = $this->createTrip($staff);
+
+        Livewire::actingAs($staff)->test(TripShow::class, ['trip' => $trip])
+            ->set('itemForm.item_type', 'destination')
+            ->set('itemForm.item_id', $dest->id)
+            ->set('itemForm.quantity', 1)
+            ->set('itemForm.people_count', 2) // Hanya untuk 2 orang
+            ->call('addItem')
+            ->assertHasNoErrors();
+
+        $item = $trip->costItems()->first();
+        $this->assertEquals(2, $item->people_count);
+        $this->assertSame('fixed', $item->cost_behavior); // Berubah jadi fixed karena people_count diisi
+    }
+
+    public function test_edit_biaya_per_orang_mengubah_jumlah_orang(): void
+    {
+        [, , $dest] = $this->versionWithItems();
+        $staff = $this->userWithRole('staff');
+        $trip = $this->createTrip($staff);
+
+        // 1. Tambah item dulu
+        $component = Livewire::actingAs($staff)->test(TripShow::class, ['trip' => $trip])
+            ->set('itemForm.item_type', 'destination')
+            ->set('itemForm.item_id', $dest->id)
+            ->set('itemForm.quantity', 1)
+            ->call('addItem');
+        
+        $item = $trip->costItems()->first();
+
+        // 2. Edit item, isi people_count jadi 3
+        $component->call('startEdit', $item->id)
+            ->set('edit.people_count', 3)
+            ->call('saveEdit')
+            ->assertHasNoErrors();
+
+        $this->assertEquals(3, $item->fresh()->people_count);
+        $this->assertSame('fixed', $item->fresh()->cost_behavior);
     }
 }

@@ -28,6 +28,7 @@ class TripCalculatorTest extends TestCase
             'quantity' => 1, 'duration_qty' => 1, 'unit_capacity' => null,
             'override_quantity' => null, 'percentage' => null, 'base_type' => null,
             'standard_cost' => 0, 'negotiated_cost' => null, 'actual_cost' => null,
+            'people_count' => null, // Ditambahkan untuk mendukung test case baru
         ], $overrides);
     }
 
@@ -142,5 +143,44 @@ class TripCalculatorTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         $this->calc->calculateTripCost(2, ['x' => $this->item(['cost_type' => 'ngawur'])]);
+    }
+
+    public function test_fotografer_per_hari_dan_jeep_per_unit_tidak_dikali_pax(): void
+    {
+        $items = [
+            'foto' => $this->item(['cost_type' => 'per_day', 'standard_cost' => 150000, 'quantity' => 1, 'duration_qty' => 2]),
+            'jeep' => $this->item(['cost_type' => 'per_vehicle', 'standard_cost' => 120000, 'quantity' => 5]),
+        ];
+
+        $r = $this->calc->calculateTripCost(10, $items);
+
+        $this->assertMoney(300000, $r['lines']['foto']['amount']);
+        $this->assertMoney(600000, $r['lines']['jeep']['amount']);
+        $this->assertMoney(900000, $r['total']);
+    }
+
+    // ==========================================
+    // TAMBAHAN TEST CASE BARU
+    // ==========================================
+
+    public function test_biaya_per_orang_hanya_untuk_sebagian_peserta(): void
+    {
+        $items = ['makan' => $this->item([
+            'cost_type' => 'per_person', 'cost_behavior' => 'fixed',
+            'standard_cost' => 25000, 'people_count' => 5,
+        ])];
+
+        $this->assertMoney(125000, $this->calc->calculateTripCost(10, $items)['total']); // 5 orang x 25.000
+        $this->assertMoney(125000, $this->calc->calculateTripCost(20, $items)['total']); // pax naik, biaya tetap
+    }
+
+    public function test_tanpa_jumlah_orang_biaya_per_orang_berlaku_untuk_semua_peserta(): void
+    {
+        $items = ['tiket' => $this->item([
+            'cost_type' => 'per_person', 'cost_behavior' => 'variable', 'standard_cost' => 50000,
+        ])];
+
+        $this->assertMoney(500000, $this->calc->calculateTripCost(10, $items)['total']);
+        $this->assertMoney(1000000, $this->calc->calculateTripCost(20, $items)['total']);
     }
 }

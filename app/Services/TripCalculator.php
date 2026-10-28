@@ -107,8 +107,12 @@ class TripCalculator
             ? $this->num($override)
             : ($calculated !== null ? (string) $calculated : $quantity);
 
+        $people = ($item['people_count'] ?? null) !== null && $item['people_count'] !== ''
+        ? (string) (int) $item['people_count']
+        : (string) $pax;
+
         $amount = match ($type) {
-            'per_person' => $this->mul($rate, (string) $pax, $quantity),
+            'per_person' => $this->mul($rate, $people, $quantity),
             'per_room', 'per_night', 'per_day' => $this->mul($rate, $units, $duration),
             'per_vehicle' => $this->mul($rate, $units),
             'per_trip' => $this->mul($rate, $quantity),

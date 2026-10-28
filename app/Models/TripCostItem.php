@@ -10,7 +10,7 @@ class TripCostItem extends Model
     protected $fillable = [
         'trip_id', 'item_type', 'item_id', 'vendor_id', 'category', 'item_name',
         'cost_type', 'cost_behavior', 'quantity', 'duration_qty', 'unit_capacity',
-        'calculated_quantity', 'override_quantity', 'override_reason',
+        'people_count', 'calculated_quantity', 'override_quantity', 'override_reason',
         'overridden_by', 'overridden_at', 'percentage', 'base_type',
         'is_required', 'is_additional',
         'standard_cost', 'negotiated_cost', 'actual_cost',
@@ -53,6 +53,7 @@ class TripCostItem extends Model
             'quantity' => $this->quantity,
             'duration_qty' => $this->duration_qty,
             'unit_capacity' => $this->unit_capacity,
+            'people_count' => $this->people_count,
             'override_quantity' => $this->override_quantity,
             'percentage' => $this->percentage,
             'base_type' => $this->base_type,

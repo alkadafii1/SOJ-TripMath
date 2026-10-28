@@ -126,9 +126,12 @@
                                     <td class="px-3 py-2">{{ \App\Support\Options::COST_TYPES[$item->cost_type] ?? $item->cost_type }}</td>
                                     <td class="px-3 py-2">{{ $item->cost_behavior === 'fixed' ? 'Fixed' : 'Variable' }}</td>
                                     <td class="px-3 py-2 text-right">
+                                        {{-- [PERUBAHAN A] Logika tampilan Jumlah Orang --}}
                                         @if ($item->cost_type === 'per_person')
-                                            {{-- [PERUBAHAN #2] pakai effectivePax() --}}
-                                            {{ $fmt($item->quantity) }} &times; {{ $trip->effectivePax() }} pax
+                                            {{ $item->people_count ?? $trip->effectivePax() }} orang
+                                            @if ((float) $item->quantity !== 1.0)
+                                                <span class="text-xs text-amber-600" title="Pengali tambahan">&times; {{ $fmt($item->quantity) }}</span>
+                                            @endif
                                         @elseif ($item->unit_capacity)
                                             {{ $fmt($item->override_quantity ?? $item->calculated_quantity ?? $item->quantity) }}
                                             @if ($item->override_quantity !== null)
@@ -145,6 +148,9 @@
                                     <td class="px-3 py-2 text-right">
                                         @if (in_array($item->cost_type, ['per_room', 'per_night']))
                                             {{ $fmt($item->duration_qty ?? 1) }} malam
+                                            @if ((float) ($item->duration_qty ?? 1) <= 0)
+                                                <div class="text-xs text-amber-600">Biaya Rp0 karena 0 malam. Cek jumlah malam di data trip.</div>
+                                            @endif
                                         @elseif ($item->cost_type === 'per_day')
                                             {{ $fmt($item->duration_qty ?? 1) }} hari
                                         @else
@@ -172,7 +178,8 @@
             </div>
 
             @if ($editable)
-                <form wire:submit="addItem" class="grid grid-cols-1 sm:grid-cols-6 gap-3 border-t pt-4">
+                {{-- [PERUBAHAN B] Form Tambah Komponen --}}
+                <form wire:submit="addItem" class="grid grid-cols-1 sm:grid-cols-8 gap-3 border-t pt-4">
                     <div>
                         <label class="block text-xs font-medium text-gray-600">Jenis</label>
                         <select wire:model.live="itemForm.item_type" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
@@ -194,11 +201,22 @@
                         @error('itemForm.item_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-600">Jumlah</label>
+                        {{-- [PERUBAHAN D] Ubah Label Jumlah menjadi Pengali --}}
+                        <label class="block text-xs font-medium text-gray-600">Pengali (biasanya 1)</label>
                         <input type="number" step="0.0001" min="0" wire:model="itemForm.quantity"
                                class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                         @error('itemForm.quantity')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     </div>
+                    
+                    {{-- [PERUBAHAN B] Tambah input Jumlah Orang --}}
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-gray-600">Jumlah orang (opsional)</label>
+                        <input type="number" min="1" max="{{ $trip->effectivePax() }}" wire:model="itemForm.people_count"
+                               placeholder="Semua ({{ $trip->effectivePax() }})"
+                               class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                        @error('itemForm.people_count')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </div>
+
                     <div class="flex items-end">
                         <button type="submit" class="w-full px-3 py-2 text-sm rounded-md bg-gray-800 text-white hover:bg-gray-700">+ Tambah</button>
                     </div>
@@ -242,7 +260,8 @@
 
                     <form wire:submit="saveEdit" class="mt-4 space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Jumlah</label>
+                            {{-- [PERUBAHAN D] Ubah Label Jumlah menjadi Pengali --}}
+                            <label class="block text-sm font-medium text-gray-700">Pengali (biasanya 1)</label>
                             <input type="number" step="0.0001" min="0" wire:model="edit.quantity"
                                    class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                             @error('edit.quantity')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
@@ -256,6 +275,18 @@
                                 <input type="number" step="0.5" min="0" wire:model="edit.duration_qty"
                                        class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                                 @error('edit.duration_qty')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        @endif
+
+                        {{-- [PERUBAHAN C] Tambah input Jumlah Orang di Panel Edit --}}
+                        @if ($editItem->cost_type === 'per_person')
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Jumlah orang yang dikenai biaya</label>
+                                <input type="number" min="1" max="{{ $trip->effectivePax() }}" wire:model="edit.people_count"
+                                       placeholder="Semua peserta ({{ $trip->effectivePax() }})"
+                                       class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                <p class="mt-1 text-xs text-gray-500">Kosongkan bila biaya berlaku untuk semua peserta.</p>
+                                @error('edit.people_count')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                             </div>
                         @endif
 

@@ -43,7 +43,7 @@ class Trip extends Model
 
     protected $fillable = [
         'trip_code', 'trip_name', 'customer_name', 'customer_contact', 'trip_type',
-        'package_version_id', 'start_date', 'end_date', 'duration_days', 'pax',
+        'package_version_id', 'start_date', 'end_date', 'duration_days', 'nights', 'pax',
         'min_pax', 'max_capacity', 'confirmed_pax', 'status',
         'itinerary', 'inclusions', 'exclusions', 'notes', 'cancel_reason',
         'created_by', 'assigned_staff_id', 'assigned_partner_id',
@@ -55,6 +55,7 @@ class Trip extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'duration_days' => 'integer',
+            'nights' => 'integer',
             'pax' => 'integer',
             'min_pax' => 'integer',
             'max_capacity' => 'integer',
@@ -69,7 +70,9 @@ class Trip extends Model
 
     public function getNightsAttribute(): int
     {
-        return max($this->duration_days - 1, 0);
+        $stored = $this->attributes['nights'] ?? null;
+
+        return $stored !== null ? (int) $stored : max($this->duration_days - 1, 0);
     }
 
     public function isEditable(): bool
@@ -78,10 +81,10 @@ class Trip extends Model
     }
 
     /**
- * Pax yang dipakai untuk menghitung biaya dan harga.
- * Open Trip yang sudah punya confirmed pax memakai confirmed pax;
- * selain itu memakai pax rencana (skenario).
- */
+     * Pax yang dipakai untuk menghitung biaya dan harga.
+     * Open Trip yang sudah punya confirmed pax memakai confirmed pax;
+     * selain itu memakai pax rencana (skenario).
+     */
     public function effectivePax(): int
     {
         return ($this->trip_type === 'open_trip' && $this->confirmed_pax)
