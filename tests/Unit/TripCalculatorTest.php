@@ -105,7 +105,7 @@ class TripCalculatorTest extends TestCase
             'a' => $base,
             'p' => $this->item(['cost_type' => 'percentage', 'percentage' => 5, 'base_type' => 'revenue']),
         ]);
-        $this->assertMoney(1000000, $noRevenue['total']); // revenue belum ada, persentase = 0
+        $this->assertMoney(1000000, $noRevenue['total']);
     }
 
     public function test_negosiasi_mengubah_negotiated_tapi_standard_tetap(): void
@@ -135,7 +135,7 @@ class TripCalculatorTest extends TestCase
 
         $this->assertMoney(420000, $r['by_category']['Tiket']);
         $this->assertMoney(300000, $r['by_category']['Guide']);
-        $this->assertMoney(180000, $r['cost_per_person']); // 720.000 / 4
+        $this->assertMoney(180000, $r['cost_per_person']);
     }
 
     public function test_tipe_biaya_tidak_dikenal_ditolak(): void
@@ -159,10 +159,6 @@ class TripCalculatorTest extends TestCase
         $this->assertMoney(900000, $r['total']);
     }
 
-    // ==========================================
-    // TAMBAHAN TEST CASE BARU
-    // ==========================================
-
     public function test_biaya_per_orang_hanya_untuk_sebagian_peserta(): void
     {
         $items = ['makan' => $this->item([
@@ -182,5 +178,25 @@ class TripCalculatorTest extends TestCase
 
         $this->assertMoney(500000, $this->calc->calculateTripCost(10, $items)['total']);
         $this->assertMoney(1000000, $this->calc->calculateTripCost(20, $items)['total']);
+    }
+
+    public function test_biaya_per_orang_tidak_memakai_pengali(): void
+    {
+        $items = ['tiket' => $this->item([
+            'cost_type' => 'per_person', 'cost_behavior' => 'variable',
+            'standard_cost' => 50000, 'quantity' => 5,
+    
+        ])];
+
+        $this->assertMoney(500000, $this->calc->calculateTripCost(10, $items)['total']);
+    }
+
+    public function test_per_hari_dikali_jumlah_unit_dan_jumlah_hari(): void
+    {
+        $items = ['foto' => $this->item([
+            'cost_type' => 'per_day', 'standard_cost' => 150000, 'quantity' => 2, 'duration_qty' => 3,
+        ])];
+
+        $this->assertMoney(900000, $this->calc->calculateTripCost(10, $items)['total']); // 2 x 3 x 150.000
     }
 }

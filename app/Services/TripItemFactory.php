@@ -10,7 +10,11 @@ use InvalidArgumentException;
 
 class TripItemFactory
 {
-    private const CAPACITY_TYPES = ['per_room', 'per_vehicle', 'per_day', 'per_night'];
+    /** Tipe yang jumlah unitnya bisa dihitung dari kapasitas (kamar, kendaraan). */
+    public const UNIT_TYPES = ['per_room', 'per_vehicle', 'per_day', 'per_night'];
+
+    /** Tipe yang dikalikan jumlah malam atau hari. */
+    public const DURATION_TYPES = ['per_room', 'per_night', 'per_day'];
 
     public static function make(string $type, Model $m, Trip $trip): array
     {
@@ -24,8 +28,9 @@ class TripItemFactory
             default => throw new InvalidArgumentException("Jenis komponen tidak dikenal: {$type}"),
         };
 
-        $capacity = (in_array($costType, self::CAPACITY_TYPES, true) && $capacity) ? (int) $capacity : null;
+        $capacity = $capacity ? (int) $capacity : null;
         $isCostItem = $type === 'cost_item';
+        $hasUnits = $capacity !== null && in_array($costType, self::UNIT_TYPES, true);
 
         return [
             'item_type' => $type,
@@ -34,7 +39,7 @@ class TripItemFactory
             'category' => $category,
             'item_name' => PackageVersionItem::labelFor($type, $m),
             'cost_type' => $costType,
-            'cost_behavior' => $isCostItem ? $m->cost_behavior : self::defaultBehavior($costType, $capacity !== null),
+            'cost_behavior' => self::behaviorFor($costType, $hasUnits, null),
             'duration_qty' => self::defaultDuration($costType, $trip),
             'unit_capacity' => $capacity,
             'percentage' => $isCostItem ? $m->percentage : null,
@@ -43,10 +48,24 @@ class TripItemFactory
         ];
     }
 
-    /** Variable bila bergantung pada pax (per orang, persentase, atau kamar/kendaraan yang dihitung dari kapasitas). */
-    public static function defaultBehavior(string $costType, bool $hasCapacity): string
+    /**
+     * Variable bila bergantung pada jumlah peserta; Fixed bila tidak.
+     * Per orang untuk semua peserta dan unit hasil kapasitas = Variable.
+     * Per orang untuk sebagian peserta (jumlah orang diisi) = Fixed.
+     */
+    public static function behaviorFor(string $costType, bool $hasUnits, ?int $peopleCount): string
     {
-        return (in_array($costType, ['per_person', 'percentage'], true) || $hasCapacity) ? 'variable' : 'fixed';
+        if ($costType === 'per_person') {
+            return $peopleCount !== null ? 'fixed' : 'variable';
+        }
+        if ($costType === 'percentage') {
+            return 'variable';
+        }
+        if (in_array($costType, self::UNIT_TYPES, true)) {
+            return $hasUnits ? 'variable' : 'fixed';
+        }
+
+        return 'fixed'; // per_trip
     }
 
     public static function defaultDuration(string $costType, Trip $trip): string

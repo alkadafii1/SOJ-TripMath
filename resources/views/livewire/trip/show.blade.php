@@ -1,5 +1,15 @@
 @php
     $fmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 4, '.', ''), '0'), '.');
+    $unitTypes = \App\Services\TripItemFactory::UNIT_TYPES;
+    $durationTypes = \App\Services\TripItemFactory::DURATION_TYPES;
+    $qtyLabels = [
+        'per_room' => 'Jumlah kamar',
+        'per_vehicle' => 'Jumlah kendaraan',
+        'per_day' => 'Jumlah (orang/unit)',
+        'per_night' => 'Jumlah (unit)',
+        'per_trip' => 'Jumlah (unit)',
+    ];
+    $paxNow = $trip->effectivePax();
 @endphp
 
 <div class="py-8">
@@ -24,6 +34,9 @@
         @if (session('status'))
             <div class="rounded-md bg-green-50 p-3 text-sm text-green-800">{{ session('status') }}</div>
         @endif
+        @if (session('warning'))
+            <div class="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{{ session('warning') }}</div>
+        @endif
         @if (session('error'))
             <div class="rounded-md bg-red-50 p-3 text-sm text-red-800">{{ session('error') }}</div>
         @endif
@@ -38,19 +51,23 @@
                     <dd class="font-medium">{{ $trip->start_date->format('d/m/Y') }} - {{ $trip->end_date->format('d/m/Y') }}</dd>
                 </div>
                 <div><dt class="text-gray-500">Durasi</dt><dd class="font-medium">{{ $trip->duration_days }} hari / {{ $trip->nights }} malam</dd></div>
-                {{-- baris Pax --}}
                 <div>
                     <dt class="text-gray-500">Pax</dt>
                     <dd class="font-medium">
-                        {{ $trip->pax }}@if ($trip->effectivePax() !== $trip->pax)<span class="text-xs text-gray-500"> (biaya dihitung dengan {{ $trip->effectivePax() }} confirmed pax)</span>@endif
+                        {{ $trip->pax }}
+                        @if ($paxNow !== $trip->pax)
+                            <span class="text-xs text-gray-500">(biaya dihitung dengan {{ $paxNow }} confirmed pax)</span>
+                        @endif
                     </dd>
                 </div>
                 <div><dt class="text-gray-500">Staff</dt><dd class="font-medium">{{ $trip->staff?->name ?? '-' }}</dd></div>
                 <div><dt class="text-gray-500">Operational Partner</dt><dd class="font-medium">{{ $trip->partner?->name ?? '-' }}</dd></div>
                 <div><dt class="text-gray-500">Destinasi</dt><dd class="font-medium">{{ $destinations ? implode(', ', $destinations) : '-' }}</dd></div>
                 @if ($trip->trip_type === 'open_trip')
-                    <div><dt class="text-gray-500">Min / Maks / Confirmed</dt>
-                        <dd class="font-medium">{{ $trip->min_pax ?? '-' }} / {{ $trip->max_capacity ?? '-' }} / {{ $trip->confirmed_pax ?? '-' }}</dd></div>
+                    <div>
+                        <dt class="text-gray-500">Min / Maks / Confirmed</dt>
+                        <dd class="font-medium">{{ $trip->min_pax ?? '-' }} / {{ $trip->max_capacity ?? '-' }} / {{ $trip->confirmed_pax ?? '-' }}</dd>
+                    </div>
                 @endif
             </dl>
 
@@ -78,7 +95,6 @@
                     <button wire:click="$set('showCancel', true)"
                             class="px-3 py-1.5 text-sm rounded-md border border-red-300 text-red-700 hover:bg-red-50">Batalkan trip</button>
                 @endif
-                {{-- tombol Harga & negosiasi --}}
                 @can('view-costs')
                     <a href="{{ route('trips.pricing', $trip->id) }}" wire:navigate
                        class="px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-500">Harga &amp; negosiasi</a>
@@ -86,7 +102,7 @@
             </div>
         </div>
 
-        {{-- Cost builder --}}
+        {{-- Komponen biaya --}}
         <div class="bg-white shadow sm:rounded-lg p-6 space-y-4">
             <h3 class="text-lg font-semibold text-gray-800">Komponen biaya</h3>
 
@@ -97,10 +113,8 @@
                             <th class="px-3 py-2 text-left font-medium text-gray-600">Komponen</th>
                             <th class="px-3 py-2 text-left font-medium text-gray-600">Tipe biaya</th>
                             <th class="px-3 py-2 text-left font-medium text-gray-600">Sifat</th>
-                            <th class="px-3 py-2 text-right font-medium text-gray-600">Jumlah</th>
-                            <th class="px-3 py-2 text-right font-medium text-gray-600">Durasi</th>
+                            <th class="px-3 py-2 text-left font-medium text-gray-600">Perhitungan</th>
                             @if ($showMoney)
-                                <th class="px-3 py-2 text-right font-medium text-gray-600">Tarif</th>
                                 <th class="px-3 py-2 text-right font-medium text-gray-600">Subtotal</th>
                             @endif
                             <th class="px-3 py-2"></th>
@@ -109,56 +123,50 @@
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($items->groupBy('category') as $category => $group)
                             <tr class="bg-gray-50">
-                                <td colspan="{{ $showMoney ? 6 : 5 }}" class="px-3 py-2 font-semibold text-gray-700">{{ $category }}</td>
-                                <td class="px-3 py-2 text-right font-semibold text-gray-700" @if(! $showMoney) hidden @endif>
-                                    @if ($showMoney) {{ \App\Support\Money::rp($summary['by_category'][$category] ?? 0) }} @endif
-                                </td>
+                                <td colspan="4" class="px-3 py-2 font-semibold text-gray-700">{{ $category }}</td>
+                                @if ($showMoney)
+                                    <td class="px-3 py-2 text-right font-semibold text-gray-700">
+                                        {{ \App\Support\Money::rp($summary['by_category'][$category] ?? 0) }}
+                                    </td>
+                                @endif
                                 <td></td>
                             </tr>
+
                             @foreach ($group as $item)
-                                @php($line = $summary['lines'][$item->id] ?? null)
+                                @php
+                                    $line = $summary['lines'][$item->id] ?? null;
+                                    $dupKey = $item->item_type.'#'.$item->item_id;
+                                    $zeroDuration = in_array($item->cost_type, ['per_room', 'per_night'], true)
+                                        && (float) ($item->duration_qty ?? 1) <= 0;
+                                @endphp
                                 <tr wire:key="item-{{ $item->id }}">
                                     <td class="px-3 py-2">
                                         {{ $item->item_name }}
-                                        @unless ($item->is_required)<span class="text-xs text-gray-400">(opsional)</span>@endunless
-                                        @if ($item->notes)<div class="text-xs text-gray-500">{{ $item->notes }}</div>@endif
+                                        @unless ($item->is_required)
+                                            <span class="text-xs text-gray-400">(opsional)</span>
+                                        @endunless
+                                        @if (($dupes[$dupKey] ?? 0) > 1)
+                                            <span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800"
+                                                  title="Komponen yang sama muncul lebih dari satu kali di trip ini">{{ $dupes[$dupKey] }} baris</span>
+                                        @endif
+                                        @if ($item->notes)
+                                            <div class="text-xs text-gray-500">{{ $item->notes }}</div>
+                                        @endif
                                     </td>
                                     <td class="px-3 py-2">{{ \App\Support\Options::COST_TYPES[$item->cost_type] ?? $item->cost_type }}</td>
                                     <td class="px-3 py-2">{{ $item->cost_behavior === 'fixed' ? 'Fixed' : 'Variable' }}</td>
-                                    <td class="px-3 py-2 text-right">
-                                        {{-- [PERUBAHAN A] Logika tampilan Jumlah Orang --}}
-                                        @if ($item->cost_type === 'per_person')
-                                            {{ $item->people_count ?? $trip->effectivePax() }} orang
-                                            @if ((float) $item->quantity !== 1.0)
-                                                <span class="text-xs text-amber-600" title="Pengali tambahan">&times; {{ $fmt($item->quantity) }}</span>
-                                            @endif
-                                        @elseif ($item->unit_capacity)
-                                            {{ $fmt($item->override_quantity ?? $item->calculated_quantity ?? $item->quantity) }}
-                                            @if ($item->override_quantity !== null)
-                                                <span class="text-xs text-amber-600" title="{{ $item->override_reason }}">
-                                                    (override, dihitung {{ $fmt($item->calculated_quantity) }})
-                                                </span>
-                                            @endif
-                                        @elseif ($item->cost_type === 'percentage')
-                                            {{ $fmt($item->percentage) }}%
-                                        @else
-                                            {{ $fmt($item->quantity) }}
+                                    <td class="px-3 py-2">
+                                        {{ \App\Support\CostExplain::forItem($item, $line, $paxNow, $showMoney) }}
+                                        @if ($item->override_quantity !== null)
+                                            <span class="text-xs text-amber-600" title="{{ $item->override_reason }}">
+                                                (manual, otomatis {{ $fmt($item->calculated_quantity) }})
+                                            </span>
                                         @endif
-                                    </td>
-                                    <td class="px-3 py-2 text-right">
-                                        @if (in_array($item->cost_type, ['per_room', 'per_night']))
-                                            {{ $fmt($item->duration_qty ?? 1) }} malam
-                                            @if ((float) ($item->duration_qty ?? 1) <= 0)
-                                                <div class="text-xs text-amber-600">Biaya Rp0 karena 0 malam. Cek jumlah malam di data trip.</div>
-                                            @endif
-                                        @elseif ($item->cost_type === 'per_day')
-                                            {{ $fmt($item->duration_qty ?? 1) }} hari
-                                        @else
-                                            -
+                                        @if ($zeroDuration)
+                                            <div class="text-xs text-amber-600">0 malam, biaya Rp0. Cek jumlah malam di data trip.</div>
                                         @endif
                                     </td>
                                     @if ($showMoney)
-                                        <td class="px-3 py-2 text-right">{{ $item->cost_type === 'percentage' ? '-' : \App\Support\Money::rp($item->standard_cost) }}</td>
                                         <td class="px-3 py-2 text-right font-medium">{{ \App\Support\Money::rp($line['amount'] ?? 0) }}</td>
                                     @endif
                                     <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
@@ -171,55 +179,110 @@
                                 </tr>
                             @endforeach
                         @empty
-                            <tr><td colspan="8" class="px-3 py-8 text-center text-gray-500">Belum ada komponen biaya.</td></tr>
+                            <tr><td colspan="6" class="px-3 py-8 text-center text-gray-500">Belum ada komponen biaya.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
 
+            {{-- Form tambah komponen --}}
             @if ($editable)
-                {{-- [PERUBAHAN B] Form Tambah Komponen --}}
-                <form wire:submit="addItem" class="grid grid-cols-1 sm:grid-cols-8 gap-3 border-t pt-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600">Jenis</label>
-                        <select wire:model.live="itemForm.item_type" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                            <option value="">-- pilih --</option>
-                            @foreach (\App\Support\Options::ITEM_TYPES as $val => $label)
-                                <option value="{{ $val }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
-                        @error('itemForm.item_type')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                    </div>
-                    <div class="sm:col-span-3">
-                        <label class="block text-xs font-medium text-gray-600">Komponen</label>
-                        <select wire:model="itemForm.item_id" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                            <option value="">-- pilih --</option>
-                            @foreach ($choices as $id => $label)
-                                <option value="{{ $id }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
-                        @error('itemForm.item_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        {{-- [PERUBAHAN D] Ubah Label Jumlah menjadi Pengali --}}
-                        <label class="block text-xs font-medium text-gray-600">Pengali (biasanya 1)</label>
-                        <input type="number" step="0.0001" min="0" wire:model="itemForm.quantity"
-                               class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                        @error('itemForm.quantity')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                    </div>
-                    
-                    {{-- [PERUBAHAN B] Tambah input Jumlah Orang --}}
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-medium text-gray-600">Jumlah orang (opsional)</label>
-                        <input type="number" min="1" max="{{ $trip->effectivePax() }}" wire:model="itemForm.people_count"
-                               placeholder="Semua ({{ $trip->effectivePax() }})"
-                               class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                        @error('itemForm.people_count')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                <form wire:submit="addItem" class="space-y-4 border-t pt-4">
+                    <h4 class="text-sm font-semibold text-gray-800">Tambah komponen biaya</h4>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-6 gap-3">
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-medium text-gray-600">Jenis</label>
+                            <select wire:model.live="itemForm.item_type" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                <option value="">-- pilih --</option>
+                                @foreach (\App\Support\Options::ITEM_TYPES as $val => $label)
+                                    <option value="{{ $val }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('itemForm.item_type')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="sm:col-span-4">
+                            <label class="block text-xs font-medium text-gray-600">Komponen</label>
+                            <select wire:model.live="itemForm.item_id" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                <option value="">-- pilih --</option>
+                                @foreach ($choices as $id => $label)
+                                    <option value="{{ $id }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('itemForm.item_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
                     </div>
 
-                    <div class="flex items-end">
-                        <button type="submit" class="w-full px-3 py-2 text-sm rounded-md bg-gray-800 text-white hover:bg-gray-700">+ Tambah</button>
-                    </div>
+                    @if ($formInfo)
+                        @php
+                            $ft = $formInfo['type'];
+                        @endphp
+
+                        <div class="grid grid-cols-1 sm:grid-cols-6 gap-3">
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-medium text-gray-600">Tipe biaya</label>
+                                <select wire:model.live="itemForm.cost_type" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                    @foreach ($addTypeOptions as $val => $label)
+                                        <option value="{{ $val }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                @error('itemForm.cost_type')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+
+                            @if ($ft === 'per_person')
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-medium text-gray-600">Jumlah orang</label>
+                                    <input type="number" min="1" max="{{ $paxNow }}" wire:model.live.debounce.400ms="itemForm.people_count"
+                                           placeholder="Semua peserta ({{ $paxNow }})"
+                                           class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                    <p class="mt-1 text-xs text-gray-500">Kosongkan bila berlaku untuk semua peserta.</p>
+                                    @error('itemForm.people_count')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                            @elseif ($ft === 'percentage')
+                                <div class="sm:col-span-4">
+                                    <p class="mt-6 text-xs text-gray-500">Biaya persentase mengikuti pengaturan komponen di data master.</p>
+                                </div>
+                            @elseif ($formInfo['has_cap'])
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-medium text-gray-600">Jumlah unit</label>
+                                    <p class="mt-2 text-sm text-gray-700">
+                                        Otomatis: <span class="font-semibold">{{ $formInfo['auto_units'] }}</span>
+                                        (kapasitas {{ $formInfo['capacity'] }} orang per unit)
+                                    </p>
+                                    <p class="text-xs text-gray-500">Bisa diganti manual lewat Ubah, dengan alasan.</p>
+                                </div>
+                            @else
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-medium text-gray-600">{{ $qtyLabels[$ft] ?? 'Jumlah' }}</label>
+                                    <input type="number" step="1" min="1" wire:model.live.debounce.400ms="itemForm.quantity"
+                                           class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                    @error('itemForm.quantity')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                            @endif
+
+                            @if (in_array($ft, $durationTypes, true))
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-medium text-gray-600">
+                                        {{ $ft === 'per_day' ? 'Jumlah hari' : 'Jumlah malam' }}
+                                    </label>
+                                    <input type="number" step="0.5" min="0.5" wire:model.live.debounce.400ms="itemForm.duration_qty"
+                                           class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                    @error('itemForm.duration_qty')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                            @endif
+                        </div>
+
+                        @if ($showMoney && $formInfo['preview'])
+                            <div class="rounded-md bg-indigo-50 p-3 text-sm text-indigo-900">
+                                Perkiraan: {{ $formInfo['preview']['text'] }} =
+                                <span class="font-semibold">{{ \App\Support\Money::rp($formInfo['preview']['amount']) }}</span>
+                            </div>
+                        @endif
+
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-4 py-2 text-sm rounded-md bg-gray-800 text-white hover:bg-gray-700">+ Tambah</button>
+                        </div>
+                    @endif
                 </form>
             @endif
         </div>
@@ -243,7 +306,7 @@
                     </div>
                 </dl>
                 <p class="mt-3 text-xs text-gray-500">
-                    Harga jual dan profit menyusul di Sprint 5. Angka ini dihitung server dari tarif yang tersimpan pada trip.
+                    Angka ini dihitung server dari tarif yang tersimpan pada trip. Harga jual dan negosiasi ada di halaman Harga &amp; negosiasi.
                 </p>
             </div>
         @endif
@@ -251,8 +314,17 @@
 
     {{-- Panel ubah komponen --}}
     @if ($editingId)
-        @php($editItem = $items->firstWhere('id', $editingId))
+        @php
+            $editItem = $items->firstWhere('id', $editingId);
+        @endphp
         @if ($editItem)
+            @php
+                $et = $edit['cost_type'] !== '' ? $edit['cost_type'] : $editItem->cost_type;
+                $eCap = $editItem->unit_capacity && in_array($et, $unitTypes, true);
+                $eOptions = $editItem->cost_type === 'percentage'
+                    ? ['percentage' => \App\Support\Options::COST_TYPES['percentage']]
+                    : array_diff_key(\App\Support\Options::COST_TYPES, ['percentage' => true]);
+            @endphp
             <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                 <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
                     <h3 class="text-lg font-semibold text-gray-800">Ubah komponen</h3>
@@ -260,50 +332,59 @@
 
                     <form wire:submit="saveEdit" class="mt-4 space-y-4">
                         <div>
-                            {{-- [PERUBAHAN D] Ubah Label Jumlah menjadi Pengali --}}
-                            <label class="block text-sm font-medium text-gray-700">Pengali (biasanya 1)</label>
-                            <input type="number" step="0.0001" min="0" wire:model="edit.quantity"
-                                   class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                            @error('edit.quantity')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700">Tipe biaya</label>
+                            <select wire:model.live="edit.cost_type" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                @foreach ($eOptions as $val => $label)
+                                    <option value="{{ $val }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('edit.cost_type')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
 
-                        @if (in_array($editItem->cost_type, ['per_room', 'per_night', 'per_day']))
+                        @if ($et === 'per_person')
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">
-                                    Durasi ({{ $editItem->cost_type === 'per_day' ? 'hari' : 'malam' }})
-                                </label>
-                                <input type="number" step="0.5" min="0" wire:model="edit.duration_qty"
+                                <label class="block text-sm font-medium text-gray-700">Jumlah orang</label>
+                                <input type="number" min="1" max="{{ $paxNow }}" wire:model="edit.people_count"
+                                       placeholder="Semua peserta ({{ $paxNow }})"
+                                       class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                <p class="mt-1 text-xs text-gray-500">Kosongkan bila berlaku untuk semua peserta.</p>
+                                @error('edit.people_count')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        @elseif ($et === 'percentage')
+                            <p class="text-xs text-gray-500">Biaya persentase mengikuti pengaturan komponen di data master.</p>
+                        @elseif (! $eCap)
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">{{ $qtyLabels[$et] ?? 'Jumlah' }}</label>
+                                <input type="number" step="1" min="1" wire:model="edit.quantity"
+                                       class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                @error('edit.quantity')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        @endif
+
+                        @if (in_array($et, $durationTypes, true))
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">{{ $et === 'per_day' ? 'Jumlah hari' : 'Jumlah malam' }}</label>
+                                <input type="number" step="0.5" min="0.5" wire:model="edit.duration_qty"
                                        class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                                 @error('edit.duration_qty')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                             </div>
                         @endif
 
-                        {{-- [PERUBAHAN C] Tambah input Jumlah Orang di Panel Edit --}}
-                        @if ($editItem->cost_type === 'per_person')
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Jumlah orang yang dikenai biaya</label>
-                                <input type="number" min="1" max="{{ $trip->effectivePax() }}" wire:model="edit.people_count"
-                                       placeholder="Semua peserta ({{ $trip->effectivePax() }})"
-                                       class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                                <p class="mt-1 text-xs text-gray-500">Kosongkan bila biaya berlaku untuk semua peserta.</p>
-                                @error('edit.people_count')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                            </div>
-                        @endif
-
-                        @if ($editItem->unit_capacity)
+                        @if ($eCap)
                             <div class="rounded-md bg-amber-50 p-3 space-y-3">
                                 <p class="text-xs text-amber-800">
-                                    Sistem menghitung {{ $fmt($editItem->calculated_quantity) }} unit
-                                    (kapasitas {{ $editItem->unit_capacity }} orang per unit). Isi di bawah hanya jika ingin menggantinya.
+                                    Sistem menghitung
+                                    {{ app(\App\Services\TripCalculator::class)->calculateRoomRequirement($paxNow, (int) $editItem->unit_capacity) }}
+                                    unit (kapasitas {{ $editItem->unit_capacity }} orang per unit). Isi di bawah hanya jika ingin menggantinya.
                                 </p>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">Override jumlah unit</label>
+                                    <label class="block text-sm font-medium text-gray-700">Jumlah unit manual</label>
                                     <input type="number" step="1" min="1" wire:model="edit.override_quantity"
                                            class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                                     @error('edit.override_quantity')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">Alasan override</label>
+                                    <label class="block text-sm font-medium text-gray-700">Alasan</label>
                                     <input type="text" wire:model="edit.override_reason"
                                            class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                                     @error('edit.override_reason')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror

@@ -112,7 +112,7 @@ class TripCalculator
         : (string) $pax;
 
         $amount = match ($type) {
-            'per_person' => $this->mul($rate, $people, $quantity),
+            'per_person' => $this->mul($rate, $people),
             'per_room', 'per_night', 'per_day' => $this->mul($rate, $units, $duration),
             'per_vehicle' => $this->mul($rate, $units),
             'per_trip' => $this->mul($rate, $quantity),
