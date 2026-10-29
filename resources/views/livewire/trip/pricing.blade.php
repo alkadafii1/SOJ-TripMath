@@ -2,6 +2,7 @@
     $rp = fn ($v) => \App\Support\Money::rp($v);
     $pct = fn ($v) => \App\Support\Money::percent($v);
     $opt = \App\Support\Options::class;
+    $calc = app(\App\Services\PricingCalculator::class);
     $plain = fn ($v) => ($v === null || $v === '') ? '' : (str_contains((string) $v, '.') ? rtrim(rtrim((string) $v, '0'), '.') : (string) $v);
     $nice = fn ($v) => number_format((float) $v, 0, ',', '.');
     $std = $costs['standard'];
@@ -9,7 +10,7 @@
     $modeNow = $pricing?->pricing_mode ?? $mode;
     $perPaxMode = $modeNow === 'per_pax';
     $totalHint = fn ($v) => ($perPaxMode && preg_match('/^\d{1,13}(\.\d{1,2})?$/', trim((string) $v)))
-        ? '= '.$rp(bcmul(trim((string) $v), (string) $pax, 2)).' untuk '.$pax.' pax'
+        ? '= '.$rp($calc->calculateTotalFromPerPax(trim((string) $v), $pax)).' untuk '.$pax.' pax'
         : '';
     $inPreStage = in_array($trip->status, ['draft', 'estimated'], true);
 @endphp
@@ -125,7 +126,7 @@
                                     </td>
                                     <td class="px-3 py-2 text-right">{{ $rp($sl) }}</td>
                                     <td class="px-3 py-2 text-right">{{ $rp($nl) }}</td>
-                                    <td class="px-3 py-2 text-right text-green-700">{{ $rp(bcsub($sl, $nl, 2)) }}</td>
+                                    <td class="px-3 py-2 text-right text-green-700">{{ $rp($calc->calculateVendorSaving($sl, $nl)['amount']) }}</td>
                                 </tr>
                             @empty
                                 <tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">Belum ada komponen biaya pada trip ini.</td></tr>
@@ -259,7 +260,9 @@
         {{-- 3. Negosiasi harga dengan customer --}}
         @if ($pricing && ! $inPreStage)
             @php
-                $recPerPax = ($perPaxMode && $pax > 0) ? bcdiv((string) $pricing->recommended_price, (string) $pax, 2) : null;
+                $recPerPax = $perPaxMode
+                    ? $calc->calculatePricePerPax((string) $pricing->recommended_price, $pax)
+                    : null;
                 $disc = $pricing->customer_discount;
                 $discSign = $disc === null ? null : bccomp((string) $disc, '0', 2);
             @endphp
@@ -308,7 +311,7 @@
                             <dd class="text-xs text-gray-500">Harga final lebih rendah dari rekomendasi.</dd>
                         @elseif ($discSign < 0)
                             <dt class="text-green-700">Di atas harga rekomendasi</dt>
-                            <dd class="text-xl font-semibold text-green-900">+{{ $rp(bcmul((string) $disc, '-1', 2)) }}</dd>
+                            <dd class="text-xl font-semibold text-green-900">+{{ $rp($calc->absoluteMoney((string) $disc)) }}</dd>
                             <dd class="text-xs text-green-700">Tidak ada diskon.</dd>
                         @else
                             <dt class="text-gray-500">Selisih dengan rekomendasi</dt>
@@ -379,7 +382,7 @@
                         <div class="rounded-md border-2 border-dashed border-amber-400 bg-amber-50 p-4">
                             <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Estimasi (bukan Actual Profit)</p>
                             <dl class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                                <div><dt class="text-amber-800">Total harga (pratinjau)</dt><dd class="font-semibold">{{ $rp(bcadd((string) $evalFinal['cost'], (string) $evalFinal['profit'], 2)) }}</dd></div>
+                                <div><dt class="text-amber-800">Total harga (pratinjau)</dt><dd class="font-semibold">{{ $rp($calc->calculateTotalPrice((string) $evalFinal['cost'], (string) $evalFinal['profit'])) }}</dd></div>
                                 <div><dt class="text-amber-800">Estimated Profit</dt><dd class="font-semibold">{{ $rp($evalFinal['profit']) }}</dd></div>
                                 <div><dt class="text-amber-800">Estimated Margin</dt><dd class="font-semibold">{{ $pct($evalFinal['margin'] ?? 0) }}</dd></div>
                                 <div><dt class="text-amber-800">Profit per orang</dt><dd class="font-semibold">{{ $evalFinal['profit_per_pax'] !== null ? $rp($evalFinal['profit_per_pax']) : '-' }}</dd></div>

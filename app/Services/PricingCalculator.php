@@ -87,6 +87,60 @@ class PricingCalculator
         return bcsub($this->num($recommended), $this->num($final), self::SCALE);
     }
 
+    /**
+     * Harga per pax = total / pax. Null bila pax < 1.
+     * Rounding default 'exact' (dua desimal, setengah ke atas).
+     */
+    public function calculatePricePerPax(string $total, int $pax, string $rounding = 'exact'): ?string
+    {
+        if ($pax < 1) {
+            return null;
+        }
+
+        return $this->roundPrice(bcdiv($this->num($total), (string) $pax, self::SCALE), $rounding);
+    }
+
+    /** Profit per orang = profit / pax. Null bila pax < 1. */
+    public function calculateProfitPerPax(string $profit, int $pax): ?string
+    {
+        if ($pax < 1) {
+            return null;
+        }
+
+        return bcdiv($this->num($profit), (string) $pax, 2);
+    }
+
+    /**
+     * Konversi harga per pax -> total.
+     * Bila $perPax false, hanya normalisasi ke 2 desimal.
+     */
+    public function calculateTotalFromPerPax(string $valuePerPax, int $pax, bool $perPax = true): string
+    {
+        $v = $this->num($valuePerPax);
+
+        return $perPax ? bcmul($v, (string) max($pax, 1), 2) : $this->toMoney($v);
+    }
+
+    /** Normalisasi nilai uang ke 2 desimal. */
+    public function toMoney(mixed $value): string
+    {
+        return bcadd($this->num($value), '0', 2);
+    }
+
+    /** Nilai absolut uang (untuk diskon negatif = di atas rekomendasi). */
+    public function absoluteMoney(string $value): string
+    {
+        $v = $this->num($value);
+
+        return bccomp($v, '0', self::SCALE) < 0 ? bcmul($v, '-1', 2) : $this->toMoney($v);
+    }
+
+    /** Total harga = cost + profit (untuk pratinjau estimasi). */
+    public function calculateTotalPrice(string $cost, string $profit): string
+    {
+        return bcadd($this->num($cost), $this->num($profit), 2);
+    }
+
     public function isBelowMinimum(?string $margin, ?string $threshold): bool
     {
         if ($threshold === null || $threshold === '') {

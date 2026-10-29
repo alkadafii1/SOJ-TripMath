@@ -49,8 +49,10 @@ class TripPricingService
         $raw = $this->calc->calculateRecommendedPrice($cost, $method, $rate, 'exact');
         $engineTotal = $this->calc->roundPrice($raw, $rounding);
 
-        $perPax = $pax > 0 ? $this->calc->roundPrice(bcdiv($raw, (string) $pax, 4), $rounding) : null;
-        $recommended = ($mode === 'per_pax' && $perPax !== null) ? bcmul($perPax, (string) $pax, 2) : $engineTotal;
+        $perPax = $this->calc->calculatePricePerPax($raw, $pax, $rounding);
+        $recommended = ($mode === 'per_pax' && $perPax !== null)
+            ? $this->calc->calculateTotalFromPerPax($perPax, $pax)
+            : $engineTotal;
 
         return [
             'cost' => $cost,
@@ -73,7 +75,7 @@ class TripPricingService
             'cost' => $cost,
             'margin' => $margin,
             'profit' => $profit,
-            'profit_per_pax' => $pax > 0 ? bcdiv($profit, (string) $pax, 2) : null,
+            'profit_per_pax' => $this->calc->calculateProfitPerPax($profit, $pax),
             'below_min' => $this->calc->isBelowMinimum($margin, $threshold),
             'discount' => $recommended !== null ? $this->calc->calculateCustomerDiscount($recommended, $price) : null,
         ];

@@ -5,6 +5,7 @@ namespace App\Livewire\Trip;
 use App\Models\Trip;
 use App\Models\TripPricing as TripPricingModel;
 use App\Services\AuditLogger;
+use App\Services\PricingCalculator;
 use App\Services\TripPricingService;
 use App\Support\Options;
 use Illuminate\Support\Facades\Auth;
@@ -45,6 +46,11 @@ class PricingPage extends Component
     protected function svc(): TripPricingService
     {
         return app(TripPricingService::class);
+    }
+
+    protected function calc(): PricingCalculator
+    {
+        return app(PricingCalculator::class);
     }
 
     protected function pricingRow(): ?TripPricingModel
@@ -98,7 +104,9 @@ class PricingPage extends Component
                 return '';
             }
 
-            return $this->plain($pricing->pricing_mode === 'per_pax' ? bcdiv((string) $v, (string) $pax, 2) : (string) $v);
+            return $this->plain($pricing->pricing_mode === 'per_pax'
+                ? ($this->calc()->calculatePricePerPax((string) $v, $pax) ?? '')
+                : (string) $v);
         };
 
         $this->packagePrice = $pricing->pricing_mode === 'package' ? $this->plain($pricing->recommended_price) : '';
@@ -136,7 +144,7 @@ class PricingPage extends Component
 
             foreach ($items as $item) {
                 $raw = $this->negotiated[$item->id] ?? '';
-                $new = ($raw === '' || $raw === null) ? null : bcadd((string) $raw, '0', 2);
+                $new = ($raw === '' || $raw === null) ? null : $this->calc()->toMoney($raw);
                 $old = $item->negotiated_cost;
 
                 $same = ($old === null && $new === null)
@@ -187,7 +195,9 @@ class PricingPage extends Component
         }
 
         $rec = $this->svc()->recommend($this->trip, $rule->method, (string) $rule->rate_percent, $rule->rounding_rule, $this->mode);
-        $recommended = $this->mode === 'package' ? bcadd($this->packagePrice, '0', 2) : $rec['recommended'];
+        $recommended = $this->mode === 'package'
+            ? $this->calc()->toMoney($this->packagePrice)
+            : $rec['recommended'];
 
         DB::transaction(function () use ($rule, $recommended) {
             $existing = $this->pricingRow();
@@ -213,7 +223,9 @@ class PricingPage extends Component
                     $data['price_per_pax'] = null;
                 }
                 if ($existing->final_price !== null) {
-                    $data['customer_discount'] = bcsub($recommended, (string) $existing->final_price, 2);
+                    $data['customer_discount'] = $this->calc()->calculateCustomerDiscount(
+                        $recommended, (string) $existing->final_price
+                    );
                 }
                 $existing->update($data);
 
@@ -271,7 +283,7 @@ class PricingPage extends Component
                 return null;
             }
 
-            return $perPax ? bcmul($v, (string) $pax, 2) : bcadd($v, '0', 2);
+            return $this->calc()->calculateTotalFromPerPax($v, $pax, $perPax);
         };
 
         $quoted = $total($this->price['quoted'] ?? '');
@@ -292,8 +304,10 @@ class PricingPage extends Component
             'quoted_price' => $quoted,
             'customer_requested_price' => $requested,
             'final_price' => $final,
-            'price_per_pax' => ($perPax && $final !== null) ? bcadd(trim((string) $this->price['final']), '0', 2) : null,
-            'customer_discount' => $final !== null ? bcsub((string) $pricing->recommended_price, $final, 2) : null,
+            'price_per_pax' => ($perPax && $final !== null) ? $this->calc()->toMoney($this->price['final']) : null,
+            'customer_discount' => $final !== null
+                ? $this->calc()->calculateCustomerDiscount((string) $pricing->recommended_price, $final)
+                : null,
             'payment_terms' => $this->blankToNull($this->price['payment_terms'] ?? ''),
             'quote_valid_until' => $this->blankToNull($this->price['quote_valid_until'] ?? ''),
             'terms' => $this->blankToNull($this->price['terms'] ?? ''),
@@ -493,71 +507,71 @@ class PricingPage extends Component
 
     // tampilan
 
-public function render()
-{
-    $svc = $this->svc();
-    $trip = $this->trip;
-    $pricing = $this->pricingRow();
-    $pax = $trip->effectivePax();
-    $canNegotiate = Gate::allows('pricing.negotiate');
+    public function render()
+    {
+        $svc = $this->svc();
+        $trip = $this->trip;
+        $pricing = $this->pricingRow();
+        $pax = $trip->effectivePax();
+        $canNegotiate = Gate::allows('pricing.negotiate');
 
-    $preview = null;
-    if (in_array($trip->status, ['draft', 'estimated'], true) && ($rule = $svc->activeRule())) {
-        $rec = $svc->recommend($trip, $rule->method, (string) $rule->rate_percent, $rule->rounding_rule, $this->mode);
-        $recommended = $this->mode === 'package'
-            ? ($this->validMoney($this->packagePrice) ? bcadd($this->packagePrice, '0', 2) : null)
-            : $rec['recommended'];
-        $threshold = $rule->min_margin_threshold === null ? null : (string) $rule->min_margin_threshold;
+        $preview = null;
+        if (in_array($trip->status, ['draft', 'estimated'], true) && ($rule = $svc->activeRule())) {
+            $rec = $svc->recommend($trip, $rule->method, (string) $rule->rate_percent, $rule->rounding_rule, $this->mode);
+            $recommended = $this->mode === 'package'
+                ? ($this->validMoney($this->packagePrice) ? $this->calc()->toMoney($this->packagePrice) : null)
+                : $rec['recommended'];
+            $threshold = $rule->min_margin_threshold === null ? null : (string) $rule->min_margin_threshold;
 
-        $preview = [
-            'rule' => $rule,
-            'rec' => $rec,
-            'recommended' => $recommended,
-            'eval' => ($recommended !== null && bccomp($recommended, '0', 2) > 0)
-                ? $svc->evaluate($trip, $recommended, $threshold)
-                : null,
-        ];
-    }
-
-    $evalFinal = $evalSaved = $problem = null;
-    if ($pricing) {
-        $threshold = $this->threshold($pricing);
-        $perPax = $pricing->pricing_mode === 'per_pax';
-
-        $typed = trim((string) ($this->price['final'] ?? ''));
-        $previewFinal = $this->validMoney($typed)
-            ? ($perPax ? bcmul($typed, (string) $pax, 2) : bcadd($typed, '0', 2))
-            : ($pricing->final_price !== null ? (string) $pricing->final_price : null);
-
-        if ($previewFinal !== null && bccomp($previewFinal, '0', 2) > 0) {
-            $evalFinal = $svc->evaluate($trip, $previewFinal, $threshold, (string) $pricing->recommended_price);
+            $preview = [
+                'rule' => $rule,
+                'rec' => $rec,
+                'recommended' => $recommended,
+                'eval' => ($recommended !== null && bccomp($recommended, '0', 2) > 0)
+                    ? $svc->evaluate($trip, $recommended, $threshold)
+                    : null,
+            ];
         }
-        if ($pricing->final_price !== null) {
-            $evalSaved = $svc->evaluate($trip, (string) $pricing->final_price, $threshold);
-        }
-        $problem = $svc->confirmationProblem($trip, $pricing);
-    }
 
-    return view('livewire.trip.pricing', [
-        'pricing' => $pricing,
-        'costs' => $svc->costTotals($trip),
-        'items' => $trip->costItems()->active()->orderBy('category')->orderBy('id')->get(),
-        'pax' => $pax,
-        'costEditable' => $canNegotiate && in_array($trip->status, ['draft', 'estimated'], true),
-        'priceEditable' => $canNegotiate && $trip->status === 'negotiation' && $pricing !== null,
-        'canNegotiate' => $canNegotiate,
-        'zeroCosts' => $trip->costItems()->active()
-            ->where('cost_type', '!=', 'percentage')
-            ->where('standard_cost', '<=', 0)
-            ->where(fn ($q) => $q->whereNull('negotiated_cost')->orWhere('negotiated_cost', '<=', 0))
-            ->pluck('item_name')
-            ->all(),
-        'canApprove' => Gate::allows('pricing.approve'),
-        'showProfit' => Gate::allows('view-finance'),
-        'preview' => $preview,
-        'evalFinal' => $evalFinal,
-        'evalSaved' => $evalSaved,
-        'problem' => $problem,
-    ]);
-}
+        $evalFinal = $evalSaved = $problem = null;
+        if ($pricing) {
+            $threshold = $this->threshold($pricing);
+            $perPax = $pricing->pricing_mode === 'per_pax';
+
+            $typed = trim((string) ($this->price['final'] ?? ''));
+            $previewFinal = $this->validMoney($typed)
+                ? $this->calc()->calculateTotalFromPerPax($typed, $pax, $perPax)
+                : ($pricing->final_price !== null ? (string) $pricing->final_price : null);
+
+            if ($previewFinal !== null && bccomp($previewFinal, '0', 2) > 0) {
+                $evalFinal = $svc->evaluate($trip, $previewFinal, $threshold, (string) $pricing->recommended_price);
+            }
+            if ($pricing->final_price !== null) {
+                $evalSaved = $svc->evaluate($trip, (string) $pricing->final_price, $threshold);
+            }
+            $problem = $svc->confirmationProblem($trip, $pricing);
+        }
+
+        return view('livewire.trip.pricing', [
+            'pricing' => $pricing,
+            'costs' => $svc->costTotals($trip),
+            'items' => $trip->costItems()->active()->orderBy('category')->orderBy('id')->get(),
+            'pax' => $pax,
+            'costEditable' => $canNegotiate && in_array($trip->status, ['draft', 'estimated'], true),
+            'priceEditable' => $canNegotiate && $trip->status === 'negotiation' && $pricing !== null,
+            'canNegotiate' => $canNegotiate,
+            'zeroCosts' => $trip->costItems()->active()
+                ->where('cost_type', '!=', 'percentage')
+                ->where('standard_cost', '<=', 0)
+                ->where(fn ($q) => $q->whereNull('negotiated_cost')->orWhere('negotiated_cost', '<=', 0))
+                ->pluck('item_name')
+                ->all(),
+            'canApprove' => Gate::allows('pricing.approve'),
+            'showProfit' => Gate::allows('view-finance'),
+            'preview' => $preview,
+            'evalFinal' => $evalFinal,
+            'evalSaved' => $evalSaved,
+            'problem' => $problem,
+        ]);
+    }
 }
