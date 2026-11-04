@@ -18,7 +18,11 @@ new class extends Component
 
 @php
     $user = auth()->user();
-    $roleLabel = ['owner' => 'Owner', 'partner' => 'Operational Partner', 'staff' => 'Staff'][$user->role] ?? ucfirst((string) $user->role);
+    
+    // Gunakan null-safe operator (?->) dan default value jika user belum login
+    $roleLabel = ['owner' => 'Owner', 'partner' => 'Operational Partner', 'staff' => 'Staff'][$user?->role] ?? ucfirst((string) $user?->role);
+    $userName = $user?->name ?? 'Guest';
+    $userInitial = mb_strtoupper(mb_substr($userName, 0, 1));
 
     // Halaman Paket beralamat di bawah /master, jadi dibedakan dulu dari Data Master
     $onPackages = request()->routeIs('packages*') || request()->is('master/packages*');
@@ -99,11 +103,13 @@ new class extends Component
         <div class="shrink-0 space-y-1 border-t border-gray-200 p-3">
             <div class="flex items-center gap-3 px-3 py-2">
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
-                    {{ mb_strtoupper(mb_substr($user->name, 0, 1)) }}
+                    {{-- PERUBAHAN 1: Menggunakan $userInitial --}}
+                    {{ $userInitial }}
                 </div>
                 <div class="min-w-0">
+                    {{-- PERUBAHAN 2: Menggunakan $userName --}}
                     <div class="truncate text-sm font-medium text-gray-800"
-                         x-data="{{ json_encode(['name' => $user->name]) }}"
+                         x-data="{{ json_encode(['name' => $userName]) }}"
                          x-text="name"
                          x-on:profile-updated.window="name = $event.detail.name"></div>
                     <div class="truncate text-xs text-gray-500">{{ $roleLabel }}</div>
