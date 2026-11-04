@@ -15,6 +15,8 @@ use App\Livewire\Trip\TripIndex;
 use App\Livewire\Trip\TripShow;
 use App\Livewire\Pricing\PricingRuleIndex;
 use App\Livewire\Trip\PricingPage;
+use App\Livewire\Trip\PaymentPage;
+use App\Livewire\Trip\ReconcilePage;
 
 Route::view('/', 'welcome');
 
@@ -56,6 +58,8 @@ Route::middleware(['auth', 'permission:trip.view'])
         Route::get('{trip}', TripShow::class)->name('show');
         Route::get('{trip}/edit', TripForm::class)->name('edit');
         Route::get('{trip}/pricing', PricingPage::class)->name('pricing');
+        Route::get('{trip}/payments', PaymentPage::class)->name('payments');
+        Route::get('{trip}/reconcile', ReconcilePage::class)->name('reconcile');
     });
 
 Route::middleware(['auth', 'permission:rules.manage'])->group(function () {

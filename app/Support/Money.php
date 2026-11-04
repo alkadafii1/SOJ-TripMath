@@ -13,4 +13,13 @@ class Money
     {
     return number_format((float) $value, 2, ',', '.').'%';
     }
+
+    /** Nominal bertanda untuk selisih, misalnya "+Rp 60.000" atau "-Rp 790.000". Hanya untuk tampilan. */
+    public static function signed($value): string
+    {
+        $number = (float) $value;
+        $sign = $number > 0 ? '+' : ($number < 0 ? '-' : '');
+
+        return $sign.'Rp '.number_format(abs($number), 0, ',', '.');
+    }
 }

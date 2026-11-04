@@ -90,4 +90,13 @@ class PricingCalculatorTest extends TestCase
         $this->assertFalse($this->calc->isBelowMinimum('10', null));      // batas tidak diatur
         $this->assertTrue($this->calc->isBelowMinimum(null, '25'));       // harga nol
     }
+
+        public function test_pembulatan_uang_setengah_menjauhi_nol(): void
+    {
+        $this->assertSame('1234.57', $this->calc->roundMoney('1234.5678'));
+        $this->assertSame('1234.56', $this->calc->roundMoney('1234.5649'));
+        $this->assertSame('-1234.57', $this->calc->roundMoney('-1234.5678'));
+        $this->assertSame('0.00', $this->calc->roundMoney('-0.0004'));
+        $this->assertSame('0.00', $this->calc->roundMoney(null));
+    }
 }

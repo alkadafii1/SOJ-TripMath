@@ -91,10 +91,32 @@
                                 class="px-3 py-1.5 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Kembali ke Draft</button>
                     @endif
                 @endif
+                @if ($canAdvance && in_array($trip->status, ['deposit_paid', 'paid'], true))
+                    <button wire:click="changeStatus('ongoing')"
+                            wire:confirm="Tandai trip sedang berjalan (Ongoing)?"
+                            class="px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-500">Mulai trip</button>
+                @endif
+                @if ($canAdvance && $trip->status === 'ongoing')
+                    <button wire:click="changeStatus('completed')"
+                            wire:confirm="Tandai trip selesai (Completed)? Setelah ini biaya aktual dilengkapi lalu direkonsiliasi."
+                            class="px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-500">Selesaikan trip</button>
+                @endif
                 @if ($canCancel)
                     <button wire:click="$set('showCancel', true)"
                             class="px-3 py-1.5 text-sm rounded-md border border-red-300 text-red-700 hover:bg-red-50">Batalkan trip</button>
                 @endif
+                @can('view-finance')
+                    @if (in_array($trip->status, ['confirmed', 'deposit_paid', 'paid', 'ongoing', 'completed', 'reconciled'], true))
+                        <a href="{{ route('trips.payments', $trip->id) }}" wire:navigate
+                           class="px-3 py-1.5 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Pembayaran</a>
+                    @endif
+                @endcan
+                @can('view-costs')
+                    @if (in_array($trip->status, ['ongoing', 'completed', 'reconciled'], true))
+                        <a href="{{ route('trips.reconcile', $trip->id) }}" wire:navigate
+                           class="px-3 py-1.5 text-sm rounded-md border border-indigo-300 text-indigo-700 hover:bg-indigo-50">Biaya aktual &amp; rekonsiliasi</a>
+                    @endif
+                @endcan
                 @can('view-costs')
                     <a href="{{ route('trips.pricing', $trip->id) }}" wire:navigate
                        class="px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-500">Harga &amp; negosiasi</a>
@@ -142,9 +164,11 @@
                                 <tr wire:key="item-{{ $item->id }}">
                                     <td class="px-3 py-2">
                                         {{ $item->item_name }}
-                                        @unless ($item->is_required)
+                                        @if ($item->is_additional)
+                                            <span class="rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800">tambahan</span>
+                                        @elseif (! $item->is_required)
                                             <span class="text-xs text-gray-400">(opsional)</span>
-                                        @endunless
+                                        @endif
                                         @if (($dupes[$dupKey] ?? 0) > 1)
                                             <span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800"
                                                   title="Komponen yang sama muncul lebih dari satu kali di trip ini">{{ $dupes[$dupKey] }} baris</span>

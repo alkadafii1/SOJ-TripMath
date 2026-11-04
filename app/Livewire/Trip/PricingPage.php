@@ -90,7 +90,10 @@ class PricingPage extends Component
         $pricing = $this->pricingRow();
         $this->mode = $pricing?->pricing_mode ?? ($this->trip->trip_type === 'open_trip' ? 'per_pax' : 'dynamic');
 
-        $this->negotiated = $this->trip->costItems()->active()->where('cost_type', '!=', 'percentage')->get()
+        $this->negotiated = $this->trip->costItems()->active()
+            ->where('is_additional', false)
+            ->where('cost_type', '!=', 'percentage')
+            ->get()
             ->mapWithKeys(fn ($i) => [$i->id => $this->plain($i->negotiated_cost)])
             ->all();
 
@@ -140,7 +143,10 @@ class PricingPage extends Component
         $changed = 0;
 
         DB::transaction(function () use ($note, &$changed) {
-            $items = $this->trip->costItems()->active()->where('cost_type', '!=', 'percentage')->get();
+            $items = $this->trip->costItems()->active()
+                ->where('is_additional', false)
+                ->where('cost_type', '!=', 'percentage')
+                ->get();
 
             foreach ($items as $item) {
                 $raw = $this->negotiated[$item->id] ?? '';
@@ -555,12 +561,13 @@ class PricingPage extends Component
         return view('livewire.trip.pricing', [
             'pricing' => $pricing,
             'costs' => $svc->costTotals($trip),
-            'items' => $trip->costItems()->active()->orderBy('category')->orderBy('id')->get(),
+            'items' => $trip->costItems()->active()->where('is_additional', false)->orderBy('category')->orderBy('id')->get(),
             'pax' => $pax,
             'costEditable' => $canNegotiate && in_array($trip->status, ['draft', 'estimated'], true),
             'priceEditable' => $canNegotiate && $trip->status === 'negotiation' && $pricing !== null,
             'canNegotiate' => $canNegotiate,
             'zeroCosts' => $trip->costItems()->active()
+                ->where('is_additional', false)
                 ->where('cost_type', '!=', 'percentage')
                 ->where('standard_cost', '<=', 0)
                 ->where(fn ($q) => $q->whereNull('negotiated_cost')->orWhere('negotiated_cost', '<=', 0))

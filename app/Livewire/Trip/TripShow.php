@@ -407,8 +407,10 @@ class TripShow extends Component
         $this->trip->refresh();
         $from = $this->trip->status;
 
-        // Draft <-> Estimated dikelola di sini. Status lain lewat halaman harga dan sprint berikutnya.
-        if (! in_array($to, ['draft', 'estimated'], true) || ! $this->trip->canTransitionTo($to)) {
+        // Dikelola di sini: Draft, Estimated, Ongoing, Completed.
+        // Negotiation dan Confirmed lewat halaman harga; Deposit Paid dan Paid otomatis dari pembayaran;
+        // Reconciled lewat halaman rekonsiliasi.
+        if (! in_array($to, ['draft', 'estimated', 'ongoing', 'completed'], true) || ! $this->trip->canTransitionTo($to)) {
             session()->flash('error', 'Perubahan status itu tidak diizinkan.');
             return;
         }
@@ -566,11 +568,13 @@ class TripShow extends Component
             'showMoney' => $showMoney,
             'editable' => Gate::allows('trip.update') && $this->trip->isEditable(),
             'canCancel' => Gate::allows('trip.cancel') && $this->trip->canTransitionTo('cancelled'),
+            'canAdvance' => Gate::allows('trip.update'),
             'choices' => $this->itemChoices(),
             'destinations' => $this->trip->destinations()->pluck('name')->all(),
             'formInfo' => $formInfo,
             'addTypeOptions' => $formInfo ? $this->typeOptions($formInfo['base_type']) : [],
-            'dupes' => $items->groupBy(fn ($i) => $i->item_type.'#'.$i->item_id)->map(fn ($g) => $g->count())->all(),
+            'dupes' => $items->reject(fn ($i) => $i->is_additional)
+                    ->groupBy(fn ($i) => $i->item_type.'#'.$i->item_id)->map(fn ($g) => $g->count())->all(),
         ]);
     }
 }   

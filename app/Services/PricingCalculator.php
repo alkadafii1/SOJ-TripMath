@@ -127,12 +127,29 @@ class PricingCalculator
         return bcadd($this->num($value), '0', 2);
     }
 
+    /** Menormalkan angka uang ke dua desimal */
+    public function normalizeMoney(mixed $value): string
+    {
+        return $this->toMoney($value);
+    }
+
     /** Nilai absolut uang (untuk diskon negatif = di atas rekomendasi). */
     public function absoluteMoney(string $value): string
     {
         $v = $this->num($value);
 
         return bccomp($v, '0', self::SCALE) < 0 ? bcmul($v, '-1', 2) : $this->toMoney($v);
+    }
+
+    /** Membulatkan ke dua desimal (setengah menjauhi nol), aman untuk nilai negatif. */
+    public function roundMoney(mixed $value): string
+    {
+        $value = $this->num($value);
+        $negative = bccomp($value, '0', self::SCALE) < 0;
+        $abs = $negative ? bcmul($value, '-1', self::SCALE) : $value;
+        $rounded = bcadd($abs, '0.005', 2);
+
+        return ($negative && bccomp($rounded, '0', 2) !== 0) ? bcmul($rounded, '-1', 2) : $rounded;
     }
 
     /** Total harga = cost + profit (untuk pratinjau estimasi). */

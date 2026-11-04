@@ -81,6 +81,19 @@ class Options
         'per_pax' => 'Per pax (Open Trip)',
     ];
 
+    public const PAYMENT_TYPES = [
+        'deposit' => 'Deposit',
+        'installment' => 'Cicilan',
+        'final' => 'Pelunasan',
+    ];
+
+    public const PAYMENT_METHODS = [
+        'transfer' => 'Transfer bank',
+        'cash' => 'Tunai',
+        'qris' => 'QRIS',
+        'other' => 'Lainnya',
+    ];
+
     public const APPROVAL_STATUS = [
         'none' => 'Belum diajukan',
         'pending' => 'Menunggu persetujuan',

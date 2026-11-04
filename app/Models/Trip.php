@@ -27,7 +27,13 @@ class Trip extends Model
     /** Status yang masih boleh diubah isinya. */
     public const EDITABLE = ['draft', 'estimated'];
 
-    /** Mesin status lengkap sesuai spesifikasi. Sprint 4 baru memakai sebagian. */
+    /** Status ketika pembayaran boleh dicatat atau dibatalkan. */
+    public const PAYABLE = ['confirmed', 'deposit_paid', 'paid', 'ongoing', 'completed'];
+
+    /** Status ketika biaya aktual boleh diisi. */
+    public const ACTUAL_COST_OPEN = ['ongoing', 'completed'];
+
+    /** Mesin status lengkap sesuai spesifikasi. */
     public const TRANSITIONS = [
         'draft' => ['estimated', 'cancelled'],
         'estimated' => ['draft', 'negotiation', 'cancelled'],
@@ -65,7 +71,7 @@ class Trip extends Model
 
     public static function daysBetween(string $start, string $end): int
     {
-        return (int) round(Carbon::parse($start)->startOfDay()->diffInDays(Carbon::parse($end)->startOfDay())) + 1;
+        return (int) round(Carbon::parse($start)->diffInDays(Carbon::parse($end))) + 1;
     }
 
     public function getNightsAttribute(): int
@@ -95,6 +101,16 @@ class Trip extends Model
     public function pricing()
     {
         return $this->hasOne(TripPricing::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function snapshot()
+    {
+        return $this->hasOne(TripSnapshot::class);
     }
 
     public function canTransitionTo(string $to): bool

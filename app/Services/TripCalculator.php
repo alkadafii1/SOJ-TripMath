@@ -83,6 +83,40 @@ class TripCalculator
         ];
     }
 
+        /**
+     * Actual Cost = jumlah biaya aktual per komponen. Berbeda dari Standard dan Negotiated Cost
+     * (yang dihitung dari tarif), biaya aktual diisi sebagai total yang benar-benar dibayar per komponen.
+     * Komponen wajib yang belum diisi dilaporkan di 'missing'; komponen opsional yang kosong dihitung 0.
+     *
+     * @param array<int|string, array{category?: string, actual_cost: mixed, is_required?: bool}> $items
+     * @return array{total: string, by_category: array<string, string>, missing: array<int, int|string>}
+     */
+    public function calculateActualCost(array $items): array
+    {
+        $total = '0';
+        $byCategory = [];
+        $missing = [];
+
+        foreach ($items as $key => $item) {
+            $actual = $item['actual_cost'] ?? null;
+
+            if ($actual === null || $actual === '') {
+                if ($item['is_required'] ?? true) {
+                    $missing[] = $key;
+                }
+                continue;
+            }
+
+            $amount = $this->num($actual);
+            $total = bcadd($total, $amount, 2);
+
+            $category = $item['category'] ?? 'Lainnya';
+            $byCategory[$category] = bcadd($byCategory[$category] ?? '0', $amount, 2);
+        }
+
+        return ['total' => $total, 'by_category' => $byCategory, 'missing' => $missing];
+    }
+
     private function calculateLine(int $pax, array $item, string $costField): array
     {
         $type = $item['cost_type'] ?? null;
