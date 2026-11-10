@@ -17,7 +17,7 @@
           x-data="{ open: false, collapsed: localStorage.getItem('sidebar-collapsed') === '1' }"
           x-init="$watch('collapsed', v => localStorage.setItem('sidebar-collapsed', v ? '1' : '0'))">
 
-        <livewire:layout.navigation />
+        <!-- <livewire:layout.navigation /> -->
 
         <div class="min-h-screen pt-14 transition-[padding] duration-200"
              :class="collapsed ? 'lg:pl-0' : 'lg:pt-0 lg:pl-64'">
