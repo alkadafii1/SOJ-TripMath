@@ -10,15 +10,74 @@ class PricingRuleSeeder extends Seeder
     /** Nilai awal hanya contoh. Owner mengubahnya lewat menu Aturan Harga. */
     public function run(): void
     {
-        PricingRule::firstOrCreate(
-            ['method' => 'cost_plus_margin', 'status' => 'active'],
+        $rules = [
+            // 1. Rule Default (Markup 20%)
             [
+                'method' => 'cost_plus_markup',
+                'status' => 'active',
+                'rate_percent' => 20,
+                'rounding_rule' => 'exact',
+                'min_margin_threshold' => 10,
+                'block_below_min' => false,
+                'require_approval' => true,
+            ],
+            
+            // 2. Rule Premium (Margin 30%)
+            [
+                'method' => 'cost_plus_margin',
+                'status' => 'active',
                 'rate_percent' => 30,
                 'rounding_rule' => 'nearest_50000',
                 'min_margin_threshold' => 20,
-                'block_below_min' => false,
+                'block_below_min' => true,
                 'require_approval' => true,
-            ]
-        );
+            ],
+
+            // 3. Rule Rombongan Besar (Markup 15%)
+            [
+                'method' => 'cost_plus_markup',
+                'status' => 'active',
+                'rate_percent' => 15,
+                'rounding_rule' => 'nearest_10000',
+                'min_margin_threshold' => 8,
+                'block_below_min' => false,
+                'require_approval' => false,
+            ],
+
+            // 4. Rule Peak Season / High Demand (Margin 35%)
+            [
+                'method' => 'cost_plus_margin',
+                'status' => 'active',
+                'rate_percent' => 35,
+                'rounding_rule' => 'nearest_50000',
+                'min_margin_threshold' => 25,
+                'block_below_min' => true,
+                'require_approval' => true,
+            ],
+
+            // 5. Rule Repeat Customer / Diskon (Markup 10%)
+            [
+                'method' => 'cost_plus_markup',
+                'status' => 'active',
+                'rate_percent' => 10,
+                'rounding_rule' => 'exact',
+                'min_margin_threshold' => 5,
+                'block_below_min' => false,
+                'require_approval' => false,
+            ],
+        ];
+
+        foreach ($rules as $rule) {
+            // Menggunakan updateOrCreate agar aman dijalankan berulang kali
+            // Pengecekan berdasarkan method dan rate_percent agar tidak bentrok
+            PricingRule::updateOrCreate(
+                [
+                    'method' => $rule['method'], 
+                    'rate_percent' => $rule['rate_percent'],
+                    'status' => $rule['status']
+                ],
+                $rule
+            );
+        }
     }
 }
