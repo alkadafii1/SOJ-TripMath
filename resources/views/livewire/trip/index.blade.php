@@ -12,6 +12,15 @@
             <div class="rounded-md bg-green-50 p-3 text-sm text-green-800">{{ session('status') }}</div>
         @endif
 
+        @if ($statuses !== '' || $startFrom !== '' || $startTo !== '')
+            <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-indigo-50 p-3 text-xs text-indigo-800">
+                <span>Filter dashboard: {{ $startFrom ?: '-' }} s/d {{ $startTo ?: '-' }}
+                    @if ($statuses) / {{ collect(explode(',', $statuses))->map(fn ($s) => \App\Models\Trip::STATUS[$s] ?? $s)->implode(', ') }} @endif
+                </span>
+                <a href="{{ route('trips.index') }}" wire:navigate class="font-semibold underline">Hapus filter dashboard</a>
+            </div>
+        @endif
+
         <div class="flex flex-wrap gap-3">
             <input type="search" wire:model.live.debounce.300ms="search" placeholder="Cari kode, nama trip, atau customer..."
                    class="rounded-md border-gray-300 text-sm shadow-sm w-80">
