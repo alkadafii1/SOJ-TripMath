@@ -118,18 +118,78 @@ class PricingTest extends TestCase
         $this->assertEquals(30, (float) $pricing->fresh()->rate_percent);
     }
 
-    public function test_negosiasi_hanya_bisa_dimulai_dari_estimated_dan_dengan_aturan_aktif(): void
+    public function test_negosiasi_bisa_dimulai_dari_draft_tanpa_pindah_halaman(): void
     {
         $this->rule();
+        $draft = $this->trip(['status' => 'draft']);
+        $bus = $draft->costItems()->where('item_name', 'Bus')->first();
+        $this->page($this->staff, $draft)
+            ->assertSee('Negosiasi harga customer')
+            ->assertSee('Lanjut ke Negosiasi Customer')
+            ->assertDontSee('Tandai trip sebagai Estimated di halaman trip')
+            ->set("negotiated.{$bus->id}", '4000000')
+            ->call('startNegotiation')->assertHasNoErrors()
+            ->assertSee('Harga yang diminta customer')
+            ->assertSee('Revisi Estimasi');
+        $this->assertSame('negotiation', $draft->fresh()->status);
+        $this->assertEquals(4000000, (float) $bus->fresh()->negotiated_cost);
+        $this->assertEquals(8300000, (float) TripPricing::first()->recommended_price);
+        $logs = \App\Models\AuditLog::where('entity', 'trip')->where('entity_id', $draft->id)
+            ->where('action', 'status_changed')->orderBy('id')->get();
+        $this->assertCount(2, $logs);
+    }
+
+    public function test_mulai_negosiasi_tanpa_aturan_tidak_mengubah_status(): void
+    {
         $draft = $this->trip(['status' => 'draft']);
         $this->page($this->staff, $draft)->call('startNegotiation');
         $this->assertSame('draft', $draft->fresh()->status);
         $this->assertSame(0, TripPricing::count());
 
-        PricingRule::query()->delete();
         $estimated = $this->trip();
         $this->page($this->staff, $estimated)->call('startNegotiation');
         $this->assertSame('estimated', $estimated->fresh()->status);
+    }
+
+    public function test_estimasi_kosong_dan_tarif_invalid_tidak_bisa_dilanjutkan(): void
+    {
+        $this->rule();
+        $draft = $this->trip(['status' => 'draft']);
+        $draft->costItems()->update(['voided_at' => now()]);
+        $this->page($this->staff, $draft)->call('startNegotiation')
+            ->assertSee('Tambahkan minimal satu komponen biaya');
+        $this->assertSame('draft', $draft->fresh()->status);
+
+        $trip = $this->trip(['status' => 'draft']);
+        $bus = $trip->costItems()->first();
+        $this->page($this->staff, $trip)->set("negotiated.{$bus->id}", '-1')
+            ->call('startNegotiation')->assertHasErrors(["negotiated.{$bus->id}"]);
+        $this->assertSame('draft', $trip->fresh()->status);
+        $this->assertSame(0, TripPricing::count());
+    }
+
+    public function test_harga_rekomendasi_nol_membatalkan_perubahan_vendor_dan_status(): void
+    {
+        $this->rule();
+        $trip = $this->trip(['status' => 'draft']);
+        $page = $this->page($this->staff, $trip);
+        foreach ($trip->costItems as $item) {
+            $page->set("negotiated.{$item->id}", '0');
+        }
+        $page->call('startNegotiation')->assertHasErrors(['negotiationReady']);
+        $this->assertSame('draft', $trip->fresh()->status);
+        $this->assertSame(0, TripPricing::count());
+        $this->assertEquals(4500000, (float) $trip->costItems()->where('item_name', 'Bus')->first()->negotiated_cost);
+        $this->assertDatabaseMissing('audit_logs', ['entity' => 'trip_cost_item', 'action' => 'negotiated']);
+    }
+
+    public function test_trip_yang_sudah_dikonfirmasi_tidak_bisa_memulai_negosiasi_ulang(): void
+    {
+        $this->rule();
+        $trip = $this->trip(['status' => 'confirmed']);
+        $this->page($this->staff, $trip)->call('startNegotiation');
+        $this->assertSame('confirmed', $trip->fresh()->status);
+        $this->assertSame(0, TripPricing::count());
     }
 
     public function test_harga_final_tidak_menimpa_recommended_dan_diskon_dihitung(): void

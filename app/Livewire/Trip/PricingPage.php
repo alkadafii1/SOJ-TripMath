@@ -177,8 +177,19 @@ class PricingPage extends Component
         abort_unless(Gate::allows('pricing.negotiate'), 403);
         $this->trip->refresh();
 
-        if ($this->trip->status !== 'estimated') {
-            session()->flash('error', 'Trip harus berstatus Estimated untuk memulai negosiasi harga.');
+                if (! in_array($this->trip->status, ['draft', 'estimated'], true)) {
+            session()->flash('error', 'Negosiasi customer hanya bisa dimulai saat estimasi masih dapat direvisi.');
+            return;
+        }
+        if ($this->trip->status === 'draft') {
+            abort_unless(Gate::allows('trip.update'), 403);
+        }
+        if (! $this->trip->costItems()->active()->where('is_additional', false)->exists()) {
+            session()->flash('error', 'Tambahkan minimal satu komponen biaya sebelum melanjutkan ke negosiasi customer.');
+            return;
+        }
+        if ($this->trip->effectivePax() < 1) {
+            session()->flash('error', 'Jumlah peserta harus lebih dari 0 sebelum melanjutkan ke negosiasi customer.');
             return;
         }
         if (! array_key_exists($this->mode, Options::PRICING_MODES)) {
@@ -200,12 +211,28 @@ class PricingPage extends Component
             $this->validate(['packagePrice' => ['required', 'numeric', 'gt:0', 'decimal:0,2']]);
         }
 
-        $rec = $this->svc()->recommend($this->trip, $rule->method, (string) $rule->rate_percent, $rule->rounding_rule, $this->mode);
-        $recommended = $this->mode === 'package'
-            ? $this->calc()->toMoney($this->packagePrice)
-            : $rec['recommended'];
+                DB::transaction(function () use ($rule) {
+            $this->trip = Trip::whereKey($this->trip->id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array($this->trip->status, ['draft', 'estimated'], true), 409);
 
-        DB::transaction(function () use ($rule, $recommended) {
+            // Simpan isian vendor sebelum menghitung harga, dalam transaksi yang sama.
+            $this->saveNegotiatedCosts();
+            session()->forget('status');
+            $rec = $this->svc()->recommend($this->trip, $rule->method, (string) $rule->rate_percent, $rule->rounding_rule, $this->mode);
+            $recommended = $this->mode === 'package'
+                ? $this->calc()->toMoney($this->packagePrice)
+                : $rec['recommended'];
+            if (bccomp($recommended, '0', 2) <= 0) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'negotiationReady' => 'Harga rekomendasi harus lebih dari Rp0. Lengkapi tarif biaya atau harga paket terlebih dahulu.',
+                ]);
+            }
+
+            if ($this->trip->status === 'draft') {
+                abort_unless(Gate::allows('trip.update'), 403);
+                $this->trip->update(['status' => 'estimated']);
+                AuditLogger::record('trip', $this->trip->id, 'status_changed', ['status' => 'draft'], ['status' => 'estimated']);
+            }
             $existing = $this->pricingRow();
 
             $data = [
@@ -252,7 +279,7 @@ class PricingPage extends Component
         });
 
         $this->loadState();
-        session()->flash('status', 'Negosiasi dimulai. Harga rekomendasi tersimpan.');
+        session()->flash('status', 'Negosiasi customer dimulai. Biaya vendor dan harga rekomendasi tersimpan. Isi penawaran dan kesepakatan di bawah.');
     }
 
     // 3. negosiasi dengan customer
@@ -508,7 +535,7 @@ class PricingPage extends Component
             AuditLogger::record('trip', $this->trip->id, 'status_changed', ['status' => 'negotiation'], ['status' => 'estimated']);
         });
 
-        session()->flash('status', 'Trip dikembalikan ke Estimated. Harga rekomendasi akan dihitung ulang saat negosiasi dimulai lagi.');
+        session()->flash('status', 'Estimasi dibuka untuk revisi di halaman ini. Sesuaikan biaya vendor, lalu klik Lanjut ke Negosiasi Customer untuk menghitung ulang harga rekomendasi.');
     }
 
     // tampilan

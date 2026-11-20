@@ -39,6 +39,10 @@
             <div class="rounded-md bg-red-50 p-3 text-sm text-red-800">{{ session('error') }}</div>
         @endif
 
+        @error('negotiationReady')
+            <div role="alert" class="rounded-md bg-red-50 p-3 text-sm text-red-800">{{ $message }}</div>
+        @enderror
+
         {{-- Ringkasan biaya --}}
         <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div class="rounded-lg bg-white shadow p-4">
@@ -149,7 +153,7 @@
                 @elseif ($canNegotiate)
                     <p class="text-xs text-gray-500">
                         Biaya negosiasi terkunci karena trip berstatus {{ \App\Models\Trip::STATUS[$trip->status] ?? $trip->status }}.
-                        Kembalikan ke Estimated untuk mengubahnya.
+                        @if ($trip->status === 'negotiation') Gunakan tombol Revisi Estimasi di bagian customer untuk mengubah biaya di halaman ini. @endif
                     </p>
                 @endif
             </form>
@@ -240,24 +244,36 @@
                         </div>
                     @endif
 
-                    @if ($canNegotiate)
-                        @if ($trip->status === 'estimated')
-                            <div class="flex justify-end">
-                                <button wire:click="startNegotiation"
-                                        wire:confirm="Harga rekomendasi akan disimpan dan struktur trip (pax dan komponen) terkunci. Lanjutkan?"
-                                        class="px-4 py-2 text-sm font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-500">
-                                    Mulai negosiasi harga
-                                </button>
-                            </div>
-                        @else
-                            <p class="text-xs text-gray-500">Tandai trip sebagai Estimated di halaman trip sebelum memulai negosiasi harga.</p>
-                        @endif
-                    @endif
+                    
                 @endif
             </div>
         @endif
 
         {{-- 3. Negosiasi harga dengan customer --}}
+        @if ($inPreStage)
+            <section class="bg-white shadow sm:rounded-lg p-6 space-y-4">
+                <h3 class="text-lg font-semibold text-gray-800">Negosiasi harga customer</h3>
+                <p class="text-sm text-gray-600">Lengkapi estimasi biaya dan pilih mode harga di atas, lalu lanjutkan untuk mencatat harga penawaran, permintaan customer, dan harga final.</p>
+                <p class="text-xs text-gray-500">Isian tarif vendor akan ikut disimpan dan harga rekomendasi dihitung dari biaya terbaru. Sistem menyiapkan status estimasi secara otomatis; Anda tidak perlu kembali ke detail trip. Setelah lanjut, struktur trip dan biaya vendor terkunci sampai Anda memilih Revisi Estimasi.</p>
+                @if ($pricing)
+                    <p class="text-xs text-amber-800">Anda sedang merevisi estimasi. Harga customer sebelumnya tetap tersimpan, tetapi harga rekomendasi akan dihitung ulang dan persetujuan lama tidak berlaku.</p>
+                @endif
+                @if ($canNegotiate && ($trip->status !== 'draft' || auth()->user()->can('trip.update')))
+                    <button type="button" wire:click="startNegotiation" wire:loading.attr="disabled" wire:target="startNegotiation"
+                            wire:confirm="Simpan tarif vendor, periksa estimasi, dan mulai negosiasi customer? Struktur trip serta biaya vendor akan dikunci."
+                            class="px-4 py-2 text-sm font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50">
+                        Lanjut ke Negosiasi Customer
+                    </button>
+                @else
+                    <p class="text-xs text-gray-500">Anda tidak memiliki izin untuk melanjutkan tahap ini. Hubungi pengelola trip.</p>
+                @endif
+            </section>
+        @elseif (! $pricing)
+            <section class="bg-white shadow sm:rounded-lg p-6 space-y-2">
+                <h3 class="text-lg font-semibold text-gray-800">Negosiasi harga customer</h3>
+                <p class="text-sm text-gray-500">Belum ada data negosiasi customer. Status trip saat ini tidak mengizinkan dimulainya negosiasi baru.</p>
+            </section>
+        @endif
         @if ($pricing && ! $inPreStage)
             @php
                 $recPerPax = $perPaxMode
@@ -464,7 +480,7 @@
                             <button wire:click="backToEstimated"
                                     wire:confirm="Trip kembali ke Estimated. Struktur dan biaya negosiasi bisa diubah lagi, dan harga rekomendasi dihitung ulang. Lanjutkan?"
                                     class="px-3 py-1.5 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">
-                                Kembali ke Estimated
+                                Revisi Estimasi
                             </button>
 
                             <div class="text-right space-y-1">
