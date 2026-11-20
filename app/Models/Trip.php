@@ -113,6 +113,11 @@ class Trip extends Model
         return $this->hasOne(TripSnapshot::class);
     }
 
+    public function distributions()
+    {
+        return $this->hasMany(ProfitDistribution::class);
+    }
+
     public function canTransitionTo(string $to): bool
     {
         return in_array($to, self::TRANSITIONS[$this->status] ?? [], true);

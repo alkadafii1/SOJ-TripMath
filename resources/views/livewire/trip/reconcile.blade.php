@@ -84,7 +84,32 @@
                         <dd class="font-semibold {{ $outstandingNow ? 'text-red-600' : '' }}">{{ $figures['outstanding'] !== null ? $rp($figures['outstanding']) : '-' }}</dd>
                     </div>
                 </dl>
-                <p class="mt-2 text-xs text-green-800">Marketing allocation dan bagi hasil dihitung di tahap berikutnya.</p>
+
+                @if ($trip->status !== 'reconciled')
+                    @if ($figures['split'])
+                        @php
+                            $sp = $figures['split'];
+                            $wfPreview = [
+                                'revenue' => $figures['revenue'],
+                                'actual_cost' => $figures['actual'],
+                                'actual_profit' => $profit['profit'],
+                                'marketing_percent' => $sp['marketing_percent'],
+                                'marketing_base' => $sp['marketing_base'],
+                                'marketing_allocation' => $sp['marketing_allocation'],
+                                'distributable' => $sp['distributable'],
+                                'owner_percent' => $sp['shares']['owner']['percent'],
+                                'owner_share' => $sp['shares']['owner']['amount'],
+                                'partner_percent' => $sp['shares']['partner']['percent'],
+                                'partner_share' => $sp['shares']['partner']['amount'],
+                            ];
+                        @endphp
+                        <div class="mt-3">
+                            <x-profit-waterfall :w="$wfPreview" title="Perkiraan pembagian laba (aturan yang berlaku hari ini)" />
+                        </div>
+                    @else
+                        <p class="mt-2 text-xs text-amber-800">{{ $figures['rule_problem'] }}</p>
+                    @endif
+                @endif
             </div>
         @endif
 
@@ -308,6 +333,25 @@
                         <div><dt class="text-gray-500">Actual Profit</dt><dd class="font-semibold">{{ $signed($snapshot->actual_profit) }}</dd></div>
                         <div><dt class="text-gray-500">Sisa tagihan saat rekonsiliasi</dt><dd class="font-semibold">{{ $rp($snapshot->outstanding_at_reconcile) }}</dd></div>
                     </dl>
+
+                    @if ($snapshot->marketing_allocation !== null)
+                        <x-profit-waterfall title="Pembagian laba (dibekukan saat rekonsiliasi)" :w="[
+                            'revenue' => $snapshot->revenue,
+                            'actual_cost' => $snapshot->actual_cost,
+                            'actual_profit' => $snapshot->actual_profit,
+                            'marketing_percent' => $snapshot->marketing_percent,
+                            'marketing_base' => $snapshot->marketing_base,
+                            'marketing_allocation' => $snapshot->marketing_allocation,
+                            'distributable' => $snapshot->distributable_profit,
+                            'owner_percent' => $snapshot->owner_percent,
+                            'owner_share' => $snapshot->owner_share,
+                            'partner_percent' => $snapshot->partner_percent,
+                            'partner_share' => $snapshot->partner_share,
+                        ]" />
+                    @else
+                        <p class="text-sm text-gray-500">Trip ini direkonsiliasi sebelum aturan bagi hasil tersedia, jadi tidak punya pembagian laba.</p>
+                    @endif
+
                     @if ($snapshot->reconcile_note)
                         <p class="text-sm text-gray-600"><span class="font-medium">Alasan:</span> {{ $snapshot->reconcile_note }}</p>
                     @endif

@@ -94,6 +94,18 @@ class Options
         'other' => 'Lainnya',
     ];
 
+    /** Dasar hitung marketing allocation. */
+    public const PROFIT_BASES = [
+        'actual_profit' => 'Actual Profit',
+        'revenue' => 'Revenue (harga final)',
+    ];
+
+    public const PROFIT_PARTIES = [
+        'marketing' => 'Marketing',
+        'owner' => 'Owner',
+        'partner' => 'Operational Partner',
+    ];
+
     public const APPROVAL_STATUS = [
         'none' => 'Belum diajukan',
         'pending' => 'Menunggu persetujuan',

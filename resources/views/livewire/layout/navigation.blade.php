@@ -81,6 +81,11 @@ new class extends Component
                 @can('trip.view')
                     <x-sidebar-link :href="route('trips.index')" icon="map" :active="request()->routeIs('trips.*')">Trip</x-sidebar-link>
                 @endcan
+                @can('report.view')
+                    @can('view-finance')
+                        <x-sidebar-link :href="route('reports')" icon="chart" :active="request()->routeIs('reports*')">Laporan</x-sidebar-link>
+                    @endcan
+                @endcan
             </div>
 
             @can('master.view')
@@ -95,8 +100,10 @@ new class extends Component
                 <div class="space-y-1">
                     <p class="px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Pengaturan</p>
                     <x-sidebar-link :href="route('pricing-rules')" icon="tag" :active="request()->routeIs('pricing-rules')">Aturan Harga</x-sidebar-link>
+                    <x-sidebar-link :href="route('profit-rules')" icon="tag" :active="request()->routeIs('profit-rules')">Aturan Profit</x-sidebar-link>
                 </div>
             @endcan
+
         </nav>
 
         {{-- Pengguna --}}

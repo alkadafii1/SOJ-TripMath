@@ -9,6 +9,7 @@ use App\Support\Options;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Models\ProfitDistribution;
 
 class ReconciliationService
 {
@@ -18,6 +19,7 @@ class ReconciliationService
         private FinanceCalculator $finance,
         private TripCalculator $calc,
         private PricingCalculator $pricing,
+        private ProfitRuleService $rules,
     ) {
     }
 
@@ -76,6 +78,39 @@ class ReconciliationService
             'paid' => $pay['paid'],
             'outstanding' => $pay['outstanding'],
             'payment_count' => $pay['payments']->whereNull('voided_at')->count(),
+            'rule_problem' => $this->rules->problem(),
+            'split' => $revenue !== null
+                ? $this->splitProfit($revenue, $this->finance->calculateProfit($revenue, $actual['total'], $trip->effectivePax())['profit'])
+                : null,
+        ];
+    }
+
+    /** Pembagian laba menurut aturan yang berlaku hari ini. Null bila belum ada aturan yang valid. */
+    public function splitProfit(string $revenue, string $actualProfit): ?array
+    {
+        $rules = $this->rules->resolve();
+        if ($rules === null) {
+            return null;
+        }
+
+        $marketing = $this->finance->calculateMarketingAllocation(
+            $revenue, $actualProfit, $rules['marketing']['percent'], $rules['marketing']['base']
+        );
+        $distributable = $this->finance->calculateDistributable($actualProfit, $marketing);
+        $shares = $this->finance->calculateProfitDistribution($distributable, [
+            'owner' => $rules['shares']['owner']['percent'],
+            'partner' => $rules['shares']['partner']['percent'],
+        ]);
+
+        return [
+            'rule_set' => $rules['rule_set'],
+            'effective_from' => $rules['effective_from'],
+            'marketing_percent' => $rules['marketing']['percent'],
+            'marketing_base' => $rules['marketing']['base'],
+            'marketing_allocation' => $marketing,
+            'distributable' => $this->pricing->roundMoney($distributable),
+            'shares' => $shares,
+            'rules' => $rules,
         ];
     }
 
@@ -113,6 +148,12 @@ class ReconciliationService
                 'label' => 'Biaya aktual komponen wajib sudah lengkap',
                 'ok' => $figures['missing_ids'] === [],
                 'detail' => $figures['missing_ids'] === [] ? '' : count($figures['missing_ids']).' komponen belum diisi: '.implode(', ', array_slice($figures['missing_names'], 0, 4)).(count($figures['missing_names']) > 4 ? ', dan lainnya' : '').'.',
+            ],
+            [
+                'key' => 'profit_rule',
+                'label' => 'Aturan marketing dan bagi hasil aktif tersedia',
+                'ok' => $figures['rule_problem'] === null,
+                'detail' => $figures['rule_problem'] ?? '',
             ],
         ];
     }
@@ -265,6 +306,8 @@ class ReconciliationService
                 throw new \DomainException('Masih ada sisa tagihan. Isi alasan rekonsiliasi (minimal 5 karakter).');
             }
 
+            $split = $figures['split'];
+
             $r = fn ($v) => $v === null ? null : $this->pricing->roundMoney($v);
             $values = [
                 'revenue' => $r($figures['revenue']),
@@ -274,6 +317,15 @@ class ReconciliationService
                 'vendor_saving' => $r($figures['vendor_saving']),
                 'customer_discount' => $r($figures['customer_discount']),
                 'actual_profit' => $r($figures['profit']['profit']),
+                'marketing_percent' => $split['marketing_percent'],
+                'marketing_base' => $split['marketing_base'],
+                'marketing_allocation' => $split['marketing_allocation'],
+                'distributable_profit' => $split['distributable'],
+                'owner_percent' => $split['shares']['owner']['percent'],
+                'owner_share' => $split['shares']['owner']['amount'],
+                'partner_percent' => $split['shares']['partner']['percent'],
+                'partner_share' => $split['shares']['partner']['amount'],
+                'profit_rule_set' => $split['rule_set'],
                 'outstanding_at_reconcile' => $outstanding,
                 'reconcile_note' => $note !== '' ? $note : null,
             ];
@@ -283,6 +335,16 @@ class ReconciliationService
                 'reconciled_by' => Auth::id(),
                 'reconciled_at' => now(),
             ]);
+
+            foreach (['owner', 'partner'] as $party) {
+                ProfitDistribution::create([
+                    'trip_id' => $fresh->id,
+                    'profit_rule_id' => $split['rules']['shares'][$party]['rule']->id,
+                    'party' => $party,
+                    'percentage' => $split['shares'][$party]['percent'],
+                    'amount' => $split['shares'][$party]['amount'],
+                ]);
+            }
 
             $fresh->update(['status' => 'reconciled']);
 

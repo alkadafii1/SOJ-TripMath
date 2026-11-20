@@ -84,6 +84,95 @@ class FinanceCalculator
         ];
     }
 
+    /**
+     * Persentase bagian terhadap dasar hitung (4 desimal), misalnya diskon terhadap harga
+     * rekomendasi atau panjang batang grafik terhadap nilai terbesar.
+     * Dasar nol atau negatif menghasilkan '0.0000' karena perbandingan tidak terdefinisi.
+     */
+    public function calculateRatioPercent(string $amount, string $base): string
+    {
+        $base = $this->num($base);
+        if (bccomp($base, '0', self::SCALE) <= 0) {
+            return '0.0000';
+        }
+
+        return bcmul(bcdiv($this->num($amount), $base, 8), '100', 4);
+    }
+
+    /** Menjumlahkan persentase (4 desimal). */
+    public function sumPercent(array $percents): string
+    {
+        $total = '0';
+        foreach ($percents as $percent) {
+            $total = bcadd($total, $this->num($percent), 4);
+        }
+
+        return $total;
+    }
+
+    /** True bila total persentase tepat 100. */
+    public function isTotalHundred(array $percents): bool
+    {
+        return bccomp($this->sumPercent($percents), '100', 4) === 0;
+    }
+
+    /**
+     * Marketing Allocation = persentase x dasar hitung.
+     * Bila trip merugi, dasar actual_profit dianggap 0 sehingga tidak ada alokasi dari kerugian.
+     */
+    public function calculateMarketingAllocation(string $revenue, string $actualProfit, string $percent, string $base): string
+    {
+        $baseAmount = match ($base) {
+            'revenue' => $this->num($revenue),
+            'actual_profit' => bccomp($this->num($actualProfit), '0', self::SCALE) > 0 ? $this->num($actualProfit) : '0',
+            default => throw new \InvalidArgumentException("Dasar marketing allocation tidak dikenal: {$base}"),
+        };
+
+        return $this->pricing->roundMoney(bcmul($baseAmount, bcdiv($this->num($percent), '100', 8), 8));
+    }
+
+    /** Distributable Profit = Actual Profit - Marketing Allocation. */
+    public function calculateDistributable(string $actualProfit, string $allocation): string
+    {
+        return bcsub($this->num($actualProfit), $this->num($allocation), self::SCALE);
+    }
+
+    /**
+     * Membagi Distributable Profit sesuai persentase (total wajib 100). Tiap bagian dibulatkan ke dua
+     * desimal; sisa pembulatan masuk ke $remainderParty sehingga jumlah bagian persis sama dengan totalnya.
+     *
+     * @return array<string, array{percent: string, amount: string}>
+     */
+    public function calculateProfitDistribution(string $distributable, array $percents, string $remainderParty = 'owner'): array
+    {
+        if (! $this->isTotalHundred($percents)) {
+            throw new \InvalidArgumentException('Total persentase bagi hasil harus 100, sekarang '.$this->sumPercent($percents).'.');
+        }
+        if (! array_key_exists($remainderParty, $percents)) {
+            throw new \InvalidArgumentException("Pihak penerima sisa pembulatan tidak ditemukan: {$remainderParty}");
+        }
+
+        $total = $this->pricing->roundMoney($distributable);
+        $amounts = [];
+        $assigned = '0';
+
+        foreach ($percents as $party => $percent) {
+            if ($party === $remainderParty) {
+                continue;
+            }
+            $amounts[$party] = $this->pricing->roundMoney(bcmul($total, bcdiv($this->num($percent), '100', 8), 8));
+            $assigned = bcadd($assigned, $amounts[$party], self::SCALE);
+        }
+        $amounts[$remainderParty] = $this->pricing->roundMoney(bcsub($total, $assigned, self::SCALE));
+
+        $result = [];
+        foreach ($percents as $party => $percent) {
+            $result[$party] = ['percent' => $this->num($percent), 'amount' => $amounts[$party]];
+        }
+
+        return $result;
+    }
+    
     private function num(mixed $value): string
     {
         if ($value === null || $value === '') {

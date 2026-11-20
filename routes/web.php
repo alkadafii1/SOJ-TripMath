@@ -17,6 +17,9 @@ use App\Livewire\Pricing\PricingRuleIndex;
 use App\Livewire\Trip\PricingPage;
 use App\Livewire\Trip\PaymentPage;
 use App\Livewire\Trip\ReconcilePage;
+use App\Http\Controllers\ReportExportController;
+use App\Livewire\Report\ReportIndex;
+use App\Livewire\Report\TripFinancialDetail;
 
 Route::view('/', 'welcome');
 
@@ -62,8 +65,16 @@ Route::middleware(['auth', 'permission:trip.view'])
         Route::get('{trip}/reconcile', ReconcilePage::class)->name('reconcile');
     });
 
+// Laporan keuangan: butuh izin laporan dan izin keuangan. Pemeriksaan ulang di komponen/controller.
+Route::middleware(['auth', 'permission:report.view'])->group(function () {
+    Route::get('reports', ReportIndex::class)->name('reports');
+    Route::get('reports/export/{report}', ReportExportController::class)->name('reports.export');
+    Route::get('reports/{trip}', TripFinancialDetail::class)->name('reports.trip');
+});
+
 Route::middleware(['auth', 'permission:rules.manage'])->group(function () {
     Route::get('pricing-rules', PricingRuleIndex::class)->name('pricing-rules');
+    Route::get('profit-rules', \App\Livewire\Profit\ProfitRuleIndex::class)->name('profit-rules');
 });
 
 require __DIR__.'/auth.php';
