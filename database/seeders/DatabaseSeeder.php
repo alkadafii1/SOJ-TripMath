@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\Vendor;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -25,6 +26,15 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolePermissionSeeder::class,
             OwnerSeeder::class,
+            ActivitySeeder::class,
+            CostItemSeeder::class,
+            DestinationSeeder::class,
+            HotelSeeder::class,
+            MealSeeder::class,
+            PackageSeeder::class,
+            PricingRuleSeeder::class,
+            VehicleSeeder::class,
+            VendorSeeder::class,
         ]);
     }
 }
