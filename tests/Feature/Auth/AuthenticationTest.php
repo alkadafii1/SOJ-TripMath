@@ -20,6 +20,15 @@ class AuthenticationTest extends TestCase
             ->assertSeeVolt('pages.auth.login');
     }
 
+    public function test_login_screen_uses_guest_layout_without_sidebar(): void
+    {
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('Selamat Datang Kembali')
+            ->assertSee('Sistem Terbatas')
+            ->assertDontSee('Buka menu'); // tombol sidebar milik layout aplikasi
+    }
+
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
         $user = User::factory()->create();
@@ -52,6 +61,18 @@ class AuthenticationTest extends TestCase
             ->assertNoRedirect();
 
         $this->assertGuest();
+    }
+
+    public function test_failed_login_shows_indonesian_error_message(): void
+    {
+        $user = User::factory()->create();
+
+        Volt::test('pages.auth.login')
+            ->set('form.email', $user->email)
+            ->set('form.password', 'kata-sandi-salah')
+            ->call('login')
+            ->assertHasErrors(['form.email'])
+            ->assertSee('Email atau kata sandi salah.');
     }
 
     public function test_navigation_menu_can_be_rendered(): void
