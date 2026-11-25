@@ -5,53 +5,35 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ isset($title) ? $title.' · ' : '' }}TripMath</title>
+        <title>{{ config('app.name', 'Laravel') }}</title>
 
-        <!-- Fonts: Menggunakan Inter -->
+        <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-        @livewireStyles
-        
-        <style>
-            /* Memastikan font diterapkan */
-            body { font-family: 'Inter', sans-serif; }
-        </style>
     </head>
-    <!-- Background dibuat sangat lembut, layout dibuat center -->
-    <body class="min-h-screen bg-[#fafafa] text-slate-700 antialiased flex items-center justify-center p-4 sm:p-6">
+    <body class="font-sans antialiased bg-gray-100"
+          x-data="{ open: false, collapsed: localStorage.getItem('sidebar-collapsed') === '1' }"
+          x-init="$watch('collapsed', v => localStorage.setItem('sidebar-collapsed', v ? '1' : '0'))">
 
-        <!-- Navbar sudah dihapus, langsung ke konten utama (Card) -->
-        <main class="w-full max-w-[440px] rounded-xl bg-white px-8 py-10 shadow-[0_4px_24px_rgba(0,0,0,0.03)] border border-gray-200">
-            
-            {{-- Identitas aplikasi dibuat lebih clean dan tidak kaku --}}
-            <div class="text-center mb-8">
-                <div class="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-indigo-50 text-indigo-600 mb-4">
-                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="5" y="3" width="14" height="18" rx="2.5" />
-                        <path d="M9 3v18" />
-                        <path d="M12.5 8h3M12.5 12h3" />
-                    </svg>
-                </div>
-                <!-- Menggunakan font-medium agar tidak terlalu tebal/kaku -->
-                <h2 class="text-[22px] font-medium tracking-tight text-gray-900">TripMath</h2>
-                <p class="mt-1.5 text-[11px] font-medium tracking-[0.1em] text-gray-400 uppercase">Trip Calculator & Cost Management System</p>
-            </div>
+        <!-- <livewire:layout.navigation /> -->
 
-            <div>
+        <div class="min-h-screen pt-14 transition-[padding] duration-200"
+             :class="collapsed ? 'lg:pl-0' : 'lg:pt-0 lg:pl-64'">
+            @isset($header)
+                <header class="bg-white shadow">
+                    <div class="px-4 py-5 sm:px-6 lg:px-8">
+                        {{ $header }}
+                    </div>
+                </header>
+            @endisset
+
+            <main class="px-4 sm:px-0">
                 {{ $slot }}
-            </div>
+            </main>
+        </div>
 
-            {{-- Catatan akses --}}
-            <p class="mt-10 flex items-center justify-center gap-1.5 text-[12px] text-gray-400">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
-                Sistem Terbatas & Hak Akses Khusus
-            </p>
-        </main>
-
-        @livewireScripts
+        @livewireScriptConfig
     </body>
 </html>
