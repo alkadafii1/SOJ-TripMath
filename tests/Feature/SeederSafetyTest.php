@@ -22,7 +22,7 @@ class SeederSafetyTest extends TestCase
     public function test_repeated_seeding_preserves_rates_passwords_rules_and_deleted_records(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $tables = ['users', 'vendors', 'hotels', 'vehicles', 'destinations', 'activities', 'meals', 'cost_items', 'packages', 'package_versions', 'package_version_items', 'pricing_rules', 'profit_rules'];
+        $tables = ['users', 'vendors', 'hotels', 'vehicles', 'destinations', 'activities', 'meals', 'cost_items', 'packages', 'package_versions', 'package_version_items', 'pricing_rules', 'profit_rules', 'trips', 'trip_cost_items', 'trip_pricing', 'payments', 'trip_snapshots', 'profit_distribution', 'audit_logs'];
         $counts = collect($tables)->mapWithKeys(fn ($table) => [$table => DB::table($table)->count()]);
         $owner = User::where('email', 'owner@soj.test')->firstOrFail();
         $owner->update(['password' => 'changed-owner-password', 'financial_visibility' => false]);
@@ -42,6 +42,15 @@ class SeederSafetyTest extends TestCase
         $this->assertSoftDeleted('hotels', ['id' => $hotel->id]);
         $this->assertEquals(27, $rule->fresh()->rate_percent);
         $this->assertSame(1, PricingRule::where('status', 'active')->count());
+    }
+
+    public function test_default_seed_populates_dashboard_transactions(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->assertDatabaseCount('trips', 12);
+        $this->assertDatabaseCount('trip_snapshots', 3);
+        $this->assertDatabaseCount('payments', 7);
+        $this->assertDatabaseCount('profit_distribution', 6);
     }
 
     public function test_fresh_seed_has_complete_package_and_valid_cost_types(): void
@@ -82,7 +91,7 @@ class SeederSafetyTest extends TestCase
             // not the CLI's interactive production confirmation.
             app(DatabaseSeeder::class)->__invoke();
             $this->assertSame(0, User::count());
-            foreach (['hotels', 'vehicles', 'packages', 'pricing_rules', 'vendors'] as $table) {
+            foreach (['hotels', 'vehicles', 'packages', 'pricing_rules', 'vendors', 'trips', 'trip_cost_items', 'trip_pricing', 'payments', 'trip_snapshots', 'profit_distribution'] as $table) {
                 $this->assertSame(0, DB::table($table)->count(), $table);
             }
             $this->assertSame(3, ProfitRule::count());

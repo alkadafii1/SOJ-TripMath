@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
                 MealSeeder::class,
                 VehicleSeeder::class,
                 PackageSeeder::class,
+                DashboardDemoSeeder::class,
             ]);
         }
     }
