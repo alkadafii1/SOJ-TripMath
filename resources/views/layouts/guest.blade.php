@@ -29,10 +29,6 @@
             <div class="text-center mb-6 flex flex-col items-center">
                 <!-- Gambar logo -->
                 <img src="{{ asset('images/soj-bg-transparent-1781074723.png') }}" alt="Sunrise of Java Logo" class="w-56 sm:w-64 h-auto object-contain mb-2">
-                
-                <!-- Judul dan subjudul dirapatkan -->
-                <h2 class="text-[22px] font-medium tracking-tight text-gray-900 leading-none">TripMath</h2>
-                <p class="mt-2 text-[11px] font-medium tracking-[0.1em] text-gray-400 uppercase">Crafting Journeys, Creating Memories</p>
             </div>
 
             <div>
