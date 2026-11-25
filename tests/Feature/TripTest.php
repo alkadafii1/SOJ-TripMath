@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\Destination;
 use App\Models\Hotel;
 use App\Models\Package;
+use App\Models\PackageVersion;
 use App\Models\Trip;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -29,10 +30,11 @@ class TripTest extends TestCase
     {
         $user = User::factory()->create(['role' => $role, 'financial_visibility' => $finance]);
         $user->assignRole($role);
+
         return $user;
     }
 
-    /** @return array{0: \App\Models\PackageVersion, 1: Hotel, 2: Destination} */
+    /** @return array{0: PackageVersion, 1: Hotel, 2: Destination} */
     private function versionWithItems(): array
     {
         $hotel = Hotel::create([
@@ -42,7 +44,7 @@ class TripTest extends TestCase
         $dest = Destination::create(['name' => 'Kawah Ijen', 'standard_cost' => 100000, 'status' => 'active']);
         $package = Package::create(['name' => 'Paket Tes', 'trip_type' => 'open_trip', 'status' => 'active']);
         $version = $package->versions()->create([
-            'version_no' => 1, 'effective_date' => now()->toDateString(),
+            'version_no' => 1, 'effective_date' => '2026-01-01',
             'status' => 'active', 'itinerary' => 'Hari 1 dan 2',
         ]);
         $version->items()->create(['item_type' => 'hotel', 'item_id' => $hotel->id, 'quantity' => 1, 'day_no' => 1]);
@@ -302,7 +304,7 @@ class TripTest extends TestCase
             ->set('itemForm.item_id', $dest->id)
             ->set('itemForm.quantity', 1)
             ->call('addItem');
-        
+
         $item = $trip->costItems()->first();
 
         // 2. Edit item, isi people_count jadi 3

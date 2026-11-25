@@ -8,14 +8,33 @@
 
             @unless ($isEdit)
                 <div class="sm:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700">Mulai dari paket (opsional)</label>
-                    <select wire:model="packageVersionId" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
+                    <label class="block text-sm font-medium text-gray-700">Mulai dari template paket (opsional)</label>
+                    <select wire:model.live="packageVersionId" class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                         <option value="">-- trip kosong / custom --</option>
                         @foreach ($versionOptions as $id => $label)
                             <option value="{{ $id }}">{{ $label }}</option>
                         @endforeach
                     </select>
-                    <p class="mt-1 text-xs text-gray-500">Komponen paket disalin ke trip dengan tarif saat ini.</p>
+                    <p class="mt-1 text-xs text-gray-500">Isi customer, tanggal, dan pax. Komponen, itinerary, termasuk/tidak termasuk disalin ke trip Draft dengan tarif master yang berlaku. Harga jual dan konfirmasi pesanan tetap melalui proses pricing.</p>
+                    @if ($templatePreview)
+                        <div class="mt-3 rounded-md bg-gray-50 p-3 text-sm text-gray-700">
+                            <p class="font-medium">{{ $templatePreview->package->name }} - versi {{ $templatePreview->version_no }}</p>
+                            <p class="mt-1 text-xs">Berlaku mulai {{ $templatePreview->effective_date?->format('d/m/Y') }}. {{ $templatePreview->duration_days ? 'Default '.$templatePreview->duration_days.' hari / '.($templatePreview->nights ?? max($templatePreview->duration_days - 1, 0)).' malam; tanggal selesai diisi otomatis saat memilih tanggal mulai dan tetap bisa disesuaikan.' : 'Tentukan tanggal dan jumlah malam sesuai layanan template.' }}</p>
+                            <details class="mt-3">
+                                <summary class="cursor-pointer text-xs font-medium text-indigo-700">Lihat itinerary dan cakupan layanan</summary>
+                                <p class="mt-2 whitespace-pre-line text-sm">{{ $templatePreview->itineraryForTrip() ?: 'Belum ada itinerary.' }}</p>
+                                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div><p class="text-xs font-medium">Sudah termasuk</p><p class="whitespace-pre-line text-xs">{{ $templatePreview->inclusions ?: '-' }}</p></div>
+                                    <div><p class="text-xs font-medium">Tidak termasuk</p><p class="whitespace-pre-line text-xs">{{ $templatePreview->exclusions ?: '-' }}</p></div>
+                                </div>
+                            </details>
+                            <ul class="mt-2 space-y-1">
+                                @foreach ($templatePreview->items->sortBy('day_no') as $row)
+                                    <li wire:key="preview-{{ $row->id }}">Hari {{ $row->day_no }}: {{ $row->item_label }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     @error('packageVersionId')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                 </div>
             @endunless
@@ -117,7 +136,7 @@
             </div>
 
             <div class="sm:col-span-2">
-                <label class="block text-sm font-medium text-gray-700">Destinasi</label>
+                <label class="block text-sm font-medium text-gray-700">{{ $templatePreview ? 'Destinasi tambahan (destinasi template ikut otomatis)' : 'Destinasi' }}</label>
                 <div class="mt-1 grid grid-cols-2 sm:grid-cols-3 gap-2">
                     @foreach ($destinationOptions as $id => $name)
                         <label class="flex items-center gap-2 text-sm text-gray-700">
@@ -137,8 +156,8 @@
             </div>
 
             <div class="sm:col-span-2 flex justify-end">
-                <button type="submit" class="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-500">
-                    Simpan
+                <button type="submit" wire:loading.attr="disabled" wire:target="save" class="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-500">
+                                    {{ $isEdit ? 'Simpan perubahan' : 'Buat trip Draft' }}
                 </button>
             </div>
         </form>

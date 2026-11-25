@@ -1,3 +1,5 @@
+
+
 <div class="py-8">
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
@@ -7,6 +9,8 @@
             <p class="text-sm text-gray-500">
                 {{ \App\Support\Options::TRIP_TYPES[$package->trip_type] ?? $package->trip_type }}
             </p>
+            <p class="mt-2 max-w-3xl text-sm text-gray-600">{{ $package->description ?: 'Template layanan perjalanan yang dapat digunakan ulang untuk pesanan customer.' }}</p>
+            <p class="mt-2 text-xs text-gray-500">Master layanan &rarr; Template perjalanan &rarr; Trip customer &rarr; Costing &amp; pricing &rarr; Rekonsiliasi</p>
         </div>
 
         @if (session('status'))
@@ -17,7 +21,8 @@
         @endif
 
         {{-- Daftar versi --}}
-        <div class="bg-white shadow sm:rounded-lg p-4 space-y-3">
+                <details class="bg-white shadow sm:rounded-lg p-4 space-y-3" @if (! $version) open @endif>
+            <summary class="cursor-pointer text-sm font-medium text-gray-700">Versi &amp; riwayat template{{ $version ? ' - versi '.$version->version_no : '' }}</summary>
             <div class="flex flex-wrap gap-2">
                 @forelse ($versions as $v)
                     <button wire:click="selectVersion({{ $v->id }})" wire:key="ver-{{ $v->id }}"
@@ -48,9 +53,30 @@
                     </button>
                 </div>
             @endif
-        </div>
+                </details>
 
         @if ($version)
+            <section class="rounded-lg border border-indigo-100 bg-indigo-50 p-5 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Template layanan, bukan transaksi customer</h3>
+                        <p class="mt-1 text-sm text-gray-600">{{ $version->duration_days ? $version->duration_days.' hari / '.($version->nights ?? max($version->duration_days - 1, 0)).' malam' : 'Durasi diatur saat membuat trip' }} &middot; {{ $items->count() }} layanan default</p>
+                    </div>
+                    @if ($version->status === 'active' && $package->status === 'active')
+                        @can('trip.create')
+                            <a href="{{ route('trips.create', ['template' => $version->id]) }}" wire:navigate class="inline-flex rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Gunakan template untuk trip customer</a>
+                        @endcan
+                    @else
+                        <p class="text-sm text-amber-800">{{ $version->status === 'draft' ? 'Lengkapi dan publikasikan template sebelum dipakai.' : 'Versi arsip/paket nonaktif tidak dapat digunakan untuk trip baru.' }}</p>
+                    @endif
+                </div>
+                <p class="text-xs text-gray-600">Customer, pax, dan tanggal diisi pada trip. Standard Cost disalin dari master; negosiasi vendor, harga jual, pembayaran, dan Actual Cost dikelola terpisah pada trip.</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach ($items->where('item_type', 'destination')->unique('item_id') as $destination)
+                        <span class="rounded-full bg-white px-3 py-1 text-xs text-indigo-700">{{ $destination->item_label }}</span>
+                    @endforeach
+                </div>
+            </section>
             {{-- Isi versi --}}
             <div class="bg-white shadow sm:rounded-lg p-6 space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-2">
@@ -62,7 +88,7 @@
                         </span>
                     </h3>
                     @unless ($editable)
-                        <p class="text-xs text-gray-500">Terkunci. Buat versi baru untuk mengubah isinya.</p>
+                        <p class="text-xs text-gray-500">{{ $version->status === 'draft' ? 'Akses baca saja. Perubahan template memerlukan izin pengelolaan paket.' : 'Terkunci. Buat versi baru untuk mengubah isinya.' }}</p>
                     @endunless
                 </div>
 
@@ -70,67 +96,70 @@
                     <p class="text-sm text-gray-600"><span class="font-medium">Catatan perubahan:</span> {{ $version->change_log }}</p>
                 @endif
 
-                <form wire:submit="saveVersion" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Tanggal efektif</label>
-                        <input type="date" wire:model="versionForm.effective_date" @disabled(! $editable)
-                               class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm disabled:bg-gray-100">
-                        @error('versionForm.effective_date')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700">Itinerary</label>
-                        <textarea wire:model="versionForm.itinerary" rows="6" @disabled(! $editable)
-                                  class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm disabled:bg-gray-100"></textarea>
-                        @error('versionForm.itinerary')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Inclusions (sudah termasuk)</label>
-                        <textarea wire:model="versionForm.inclusions" rows="4" @disabled(! $editable)
-                                  class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm disabled:bg-gray-100"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Exclusions (tidak termasuk)</label>
-                        <textarea wire:model="versionForm.exclusions" rows="4" @disabled(! $editable)
-                                  class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm disabled:bg-gray-100"></textarea>
-                    </div>
-
-                    @if ($editable)
-                        <div class="sm:col-span-2 flex justify-end">
-                            <button type="submit"
-                                    class="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-500">
-                                Simpan isi versi
-                            </button>
-                        </div>
-                    @endif
-                </form>
+                                @include('livewire.package.plan-form')
             </div>
 
             {{-- Komponen --}}
             <div class="bg-white shadow sm:rounded-lg p-6 space-y-4">
-                <h3 class="text-lg font-semibold text-gray-800">Komponen paket</h3>
+                                <h3 class="text-lg font-semibold text-gray-800">2. Default layanan &amp; costing internal</h3>
+                <p class="text-sm text-gray-500">Hubungkan layanan itinerary dengan master. Tarif yang berlaku diperiksa saat trip dibuat; tidak ada harga jual final atau profit customer pada template ini.</p>
+                @error('packageVersionId')<p role="alert" class="text-sm text-red-600">{{ $message }}</p>@enderror
 
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-2 text-left font-medium text-gray-600">Hari</th>
+                                <th class="px-4 py-2 text-left font-medium text-gray-600">Hari mulai</th>
                                 <th class="px-4 py-2 text-left font-medium text-gray-600">Jenis</th>
                                 <th class="px-4 py-2 text-left font-medium text-gray-600">Komponen</th>
                                 <th class="px-4 py-2 text-right font-medium text-gray-600">Jumlah</th>
+                                <th class="px-4 py-2 text-left font-medium text-gray-600">Dasar biaya / kapasitas</th>
+                                <th class="px-4 py-2 text-left font-medium text-gray-600">Durasi layanan</th>
                                 <th class="px-4 py-2 text-left font-medium text-gray-600">Catatan</th>
                                 <th class="px-4 py-2"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($items as $item)
+                                @php
+                                    $master = $item->item;
+                                    $info = $master ? \App\Services\TripItemFactory::templateInfo($item->item_type, $master) : null;
+                                    $costType = $info['cost_type'] ?? '';
+                                    $capacity = $info['unit_capacity'] ?? null;
+                                    $vendor = $master && method_exists($master, 'vendor') ? $master->vendor?->name : null;
+                                @endphp
                                 <tr wire:key="item-{{ $item->id }}">
                                     <td class="px-4 py-2">{{ $item->day_no ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ \App\Support\Options::ITEM_TYPES[$item->item_type] ?? $item->item_type }}</td>
-                                    <td class="px-4 py-2">{{ $item->item_label }}</td>
-                                    <td class="px-4 py-2 text-right">{{ rtrim(rtrim(number_format((float) $item->quantity, 4, ',', '.'), '0'), ',') }}</td>
+                                                                        <td class="px-4 py-2">
+                                        {{ $item->item_label }}
+                                        @if ($vendor)<span class="block text-xs text-gray-500">{{ $vendor }}</span>@endif
+                                        @if ($showMoney && $info)
+                                            <span class="block text-xs text-gray-500">Tarif referensi: {{ $costType === 'percentage' ? $info['percentage'].'%' : \App\Support\Money::rp($info['standard_cost']) }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-2 text-right">{{ ($info['automatic_quantity'] ?? false) ? ($costType === 'per_person' ? 'Seluruh peserta' : 'Otomatis') : rtrim(rtrim(number_format((float) $item->quantity, 4, ',', '.'), '0'), ',') }}</td>
+                                    
+                                    <td class="px-4 py-2">
+                                        {{ \App\Support\Options::COST_TYPES[$costType] ?? '-' }}
+                                        @if ($capacity) <span class="block text-xs text-gray-500">{{ $capacity }} orang/unit</span> @endif
+                                        @if (! $master || $master->trashed() || $master->status !== 'active')
+                                            <span class="block text-xs text-red-600">Tidak tersedia</span>
+                                        @endif
+                                    </td>
+                                    
+                                    <td class="px-4 py-2">
+                                        @if (in_array($costType, \App\Services\TripItemFactory::DURATION_TYPES, true))
+                                            {{ $item->duration_qty ?? 'Ikuti trip' }} {{ $item->duration_qty ? (in_array($costType, ['per_room', 'per_night']) ? 'malam' : 'hari') : '' }}
+                                        @else
+                                            Satu layanan
+                                        @endif
+                                    </td>
+                                    
                                     <td class="px-4 py-2">{{ $item->notes ?? '-' }}</td>
                                     <td class="px-4 py-2 text-right">
                                         @if ($editable)
+                                            <button type="button" wire:click="editItem({{ $item->id }})" class="mr-3 text-indigo-600 hover:underline">Edit</button>
                                             <button wire:click="removeItem({{ $item->id }})"
                                                     wire:confirm="Hapus komponen ini?"
                                                     class="text-red-600 hover:underline">Hapus</button>
@@ -138,68 +167,13 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">Belum ada komponen.</td></tr>
+                                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-500">Belum ada komponen.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
 
-                @if ($editable)
-                    <form wire:submit="addItem" class="grid grid-cols-1 sm:grid-cols-6 gap-3 border-t pt-4">
-                        <div class="sm:col-span-1">
-                            <label class="block text-xs font-medium text-gray-600">Jenis</label>
-                            <select wire:model.live="itemForm.item_type"
-                                    class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                                <option value="">-- pilih --</option>
-                                @foreach (\App\Support\Options::ITEM_TYPES as $val => $label)
-                                    <option value="{{ $val }}">{{ $label }}</option>
-                                @endforeach
-                            </select>
-                            @error('itemForm.item_type')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                        </div>
-                        <div class="sm:col-span-2">
-                            <label class="block text-xs font-medium text-gray-600">Komponen</label>
-                            <select wire:model="itemForm.item_id"
-                                    class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                                <option value="">-- pilih --</option>
-                                @foreach ($choices as $id => $label)
-                                    <option value="{{ $id }}">{{ $label }}</option>
-                                @endforeach
-                            </select>
-                            @error('itemForm.item_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600">Jumlah</label>
-                            <input type="number" step="0.0001" min="0" wire:model="itemForm.quantity"
-                                   class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                            @error('itemForm.quantity')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600">Hari ke-</label>
-                            <input type="number" min="1" max="30" wire:model="itemForm.day_no"
-                                   class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
-                            @error('itemForm.day_no')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                        </div>
-                        <div class="flex items-end">
-                            <button type="submit"
-                                    class="w-full px-3 py-2 text-sm rounded-md bg-gray-800 text-white hover:bg-gray-700">
-                                + Tambah
-                            </button>
-                        </div>
-                        <div class="sm:col-span-6">
-                            <input type="text" wire:model="itemForm.notes" placeholder="Catatan (opsional)"
-                                   class="w-full rounded-md border-gray-300 text-sm shadow-sm">
-                        </div>
-                    </form>
-
-                    <div class="flex justify-end border-t pt-4">
-                        <button wire:click="publish"
-                                wire:confirm="Setelah dipublikasikan, versi ini terkunci. Lanjutkan?"
-                                class="px-4 py-2 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-500">
-                            Publikasikan versi ini
-                        </button>
-                    </div>
-                @endif
+                                @include('livewire.package.service-form')
             </div>
         @endif
     </div>

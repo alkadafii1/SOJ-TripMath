@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Trip;
 
+use App\Livewire\Concerns\LoadsActiveMasters;
 use App\Models\PackageVersionItem;
 use App\Models\Trip;
 use App\Services\AuditLogger;
@@ -11,7 +12,7 @@ use App\Services\TripItemFactory;
 use App\Support\CostExplain;
 use App\Support\Options;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
+
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -19,6 +20,8 @@ use Livewire\Component;
 
 class TripShow extends Component
 {
+    use LoadsActiveMasters;
+
     public Trip $trip;
 
     public array $itemForm = [
@@ -130,9 +133,7 @@ class TripShow extends Component
             return null;
         }
 
-        $class = Relation::getMorphedModel($type);
-
-        return $class ? $class::active()->find($id) : null;
+                return $this->activeMasters($type)->find($id);
     }
 
     /** Tipe Percentage hanya untuk biaya berbasis persentase; tipe lain tidak bisa menjadi Percentage. */
@@ -453,13 +454,8 @@ class TripShow extends Component
     protected function itemChoices(): array
     {
         $type = $this->itemForm['item_type'];
-        $class = $type ? Relation::getMorphedModel($type) : null;
+                return $this->activeMasters($type)
 
-        if (! $class) {
-            return [];
-        }
-
-        return $class::active()->get()
             ->mapWithKeys(fn ($m) => [$m->id => PackageVersionItem::labelFor($type, $m)])
             ->all();
     }
@@ -564,7 +560,7 @@ class TripShow extends Component
 
         return view('livewire.trip.show', [
             'items' => $items,
-            'summary' => $showMoney ? app(TripCostService::class)->summary($this->trip) : null,
+            'summary' => $showMoney ? app(TripCostService::class)->summary($this->trip, items: $items) : null,
             'showMoney' => $showMoney,
             'editable' => Gate::allows('trip.update') && $this->trip->isEditable(),
             'canCancel' => Gate::allows('trip.cancel') && $this->trip->canTransitionTo('cancelled'),

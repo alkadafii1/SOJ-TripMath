@@ -124,6 +124,20 @@
             </div>
         </div>
 
+        @if ($trip->itinerary || $trip->inclusions || $trip->exclusions)
+            <section class="bg-white shadow sm:rounded-lg p-6 space-y-4">
+                <h3 class="text-lg font-semibold text-gray-800">Rencana layanan trip</h3>
+                <p class="text-xs text-gray-500">Salinan dari template saat trip dibuat; perubahan template tidak mengubah trip ini.</p>
+                @if ($trip->itinerary)
+                    <div><h4 class="text-sm font-medium text-gray-700">Itinerary</h4><p class="mt-1 whitespace-pre-line text-sm text-gray-600">{{ $trip->itinerary }}</p></div>
+                @endif
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><h4 class="text-sm font-medium text-gray-700">Sudah termasuk</h4><p class="mt-1 whitespace-pre-line text-sm text-gray-600">{{ $trip->inclusions ?: '-' }}</p></div>
+                    <div><h4 class="text-sm font-medium text-gray-700">Tidak termasuk</h4><p class="mt-1 whitespace-pre-line text-sm text-gray-600">{{ $trip->exclusions ?: '-' }}</p></div>
+                </div>
+            </section>
+        @endif
+
         {{-- Komponen biaya --}}
         <div class="bg-white shadow sm:rounded-lg p-6 space-y-4">
             <h3 class="text-lg font-semibold text-gray-800">Komponen biaya</h3>
@@ -164,6 +178,9 @@
                                 <tr wire:key="item-{{ $item->id }}">
                                     <td class="px-3 py-2">
                                         {{ $item->item_name }}
+                                        @if ($item->day_no)
+                                            <div class="text-xs text-gray-500">Mulai hari {{ $item->day_no }}{{ $item->follows_trip_duration ? ' - durasi mengikuti trip' : ' - durasi layanan tetap' }}</div>
+                                        @endif
                                         @if ($item->is_additional)
                                             <span class="rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800">tambahan</span>
                                         @elseif (! $item->is_required)
@@ -256,7 +273,7 @@
                             @if ($ft === 'per_person')
                                 <div class="sm:col-span-2">
                                     <label class="block text-xs font-medium text-gray-600">Jumlah orang</label>
-                                    <input type="number" min="1" max="{{ $paxNow }}" wire:model.live.debounce.400ms="itemForm.people_count"
+                                    <input type="number" min="1" max="{{ $paxNow }}" wire:model.blur="itemForm.people_count"
                                            placeholder="Semua peserta ({{ $paxNow }})"
                                            class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                                     <p class="mt-1 text-xs text-gray-500">Kosongkan bila berlaku untuk semua peserta.</p>
@@ -278,7 +295,7 @@
                             @else
                                 <div class="sm:col-span-2">
                                     <label class="block text-xs font-medium text-gray-600">{{ $qtyLabels[$ft] ?? 'Jumlah' }}</label>
-                                    <input type="number" step="1" min="1" wire:model.live.debounce.400ms="itemForm.quantity"
+                                    <input type="number" step="1" min="1" wire:model.blur="itemForm.quantity"
                                            class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                                     @error('itemForm.quantity')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 </div>
@@ -289,7 +306,7 @@
                                     <label class="block text-xs font-medium text-gray-600">
                                         {{ $ft === 'per_day' ? 'Jumlah hari' : 'Jumlah malam' }}
                                     </label>
-                                    <input type="number" step="0.5" min="0.5" wire:model.live.debounce.400ms="itemForm.duration_qty"
+                                    <input type="number" step="0.5" min="0.5" wire:model.blur="itemForm.duration_qty"
                                            class="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm">
                                     @error('itemForm.duration_qty')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 </div>
@@ -303,8 +320,9 @@
                             </div>
                         @endif
 
+<p wire:loading.delay wire:target="itemForm" class="text-xs text-gray-500" role="status">Memperbarui perkiraan biaya...</p>
                         <div class="flex justify-end">
-                            <button type="submit" class="px-4 py-2 text-sm rounded-md bg-gray-800 text-white hover:bg-gray-700">+ Tambah</button>
+                            <button type="submit" wire:loading.attr="disabled" wire:target="addItem" class="px-4 py-2 text-sm rounded-md bg-gray-800 text-white hover:bg-gray-700">+ Tambah</button>
                         </div>
                     @endif
                 </form>
