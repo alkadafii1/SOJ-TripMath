@@ -39,7 +39,7 @@ new #[Layout('layouts.guest'), Title('Masuk')] class extends Component
         <div>
             <label for="email" class="block text-xs font-semibold text-slate-700">Email</label>
             <input wire:model="form.email" id="email" name="email" type="email"
-                   required autofocus autocomplete="username" placeholder="nama@perusahaan.com"
+                   required autofocus autocomplete="username" placeholder="Masukkan email anda"
                    @class([
                        'mt-1.5 block w-full rounded-lg border bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400',
                        'focus:bg-white focus:ring-2',
