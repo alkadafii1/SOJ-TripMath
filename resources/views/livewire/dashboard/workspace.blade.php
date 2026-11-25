@@ -12,11 +12,12 @@
                 </select>
             </label>
             @if ($preset === 'custom')
-                <label class="text-xs text-gray-500">Dari<input aria-label="Tanggal mulai operasional" type="date" wire:model.live="from" class="mt-1 block rounded-lg border-gray-300 text-sm"></label>
-                <label class="text-xs text-gray-500">Sampai<input aria-label="Tanggal akhir operasional" type="date" wire:model.live="to" class="mt-1 block rounded-lg border-gray-300 text-sm"></label>
+                <label class="text-xs text-gray-500">Dari<input aria-label="Tanggal mulai operasional" type="date" wire:model.blur="from" class="mt-1 block rounded-lg border-gray-300 text-sm"></label>
+                <label class="text-xs text-gray-500">Sampai<input aria-label="Tanggal akhir operasional" type="date" wire:model.blur="to" class="mt-1 block rounded-lg border-gray-300 text-sm"></label>
             @endif
         </div>
     </header>
+    <div class="h-4"><span wire:loading.delay role="status" class="text-xs text-gray-500">Memperbarui dashboard...</span></div>
     @if ($error)<p role="alert" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ $error }}</p>@endif
     <p class="text-xs text-gray-500">Ringkasan dan sebaran status berdasarkan tanggal mulai trip: {{ $period->label() }}. Hanya data yang boleh Anda lihat.</p>
 

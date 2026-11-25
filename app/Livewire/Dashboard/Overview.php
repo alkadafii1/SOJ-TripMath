@@ -4,6 +4,7 @@ namespace App\Livewire\Dashboard;
 
 use App\Models\User;
 use App\Services\DashboardService;
+use App\Support\ReportPeriod;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -14,8 +15,11 @@ use Livewire\Component;
 class Overview extends Component
 {
     public string $preset = 'month';
+
     public ?string $from = null;
+
     public ?string $to = null;
+
     public string $tab = 'ongoing';
 
     public function render()
@@ -23,9 +27,9 @@ class Overview extends Component
         /** @var User $user */
         $user = Auth::user();
         $service = app(DashboardService::class);
-        [$period, $error] = \App\Support\ReportPeriod::resolve($this->preset, $this->from, $this->to);
+        [$period, $error] = ReportPeriod::resolve($this->preset, $this->from, $this->to);
         $actions = $user->can('view-costs')
-            ? collect($service->actions($user))->whereIn('key', ['approval', 'actual_cost', 'reconcile'])->values()->all()
+            ? $service->actions($user, ['approval', 'actual_cost', 'reconcile'])
             : [];
 
         return view('livewire.dashboard.workspace', [
@@ -34,7 +38,7 @@ class Overview extends Component
             'actions' => $actions,
             'period' => $period,
             'error' => $error,
-            'presets' => \App\Support\ReportPeriod::PRESETS,
+            'presets' => ReportPeriod::PRESETS,
         ]);
     }
 }

@@ -6,7 +6,10 @@ use App\Models\AuditLog;
 use App\Models\PricingRule;
 use App\Models\Trip;
 use App\Models\User;
+use App\Support\ReportPeriod;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Data operasional dashboard: apa yang perlu dikerjakan sekarang.
@@ -25,10 +28,9 @@ class DashboardService
         private PricingCalculator $pricing,
         private TripCalculator $calc,
         private ProfitRuleService $rules,
-    ) {
-    }
+    ) {}
 
-    public function operational(User $user, \App\Support\ReportPeriod $period): array
+    public function operational(User $user, ReportPeriod $period): array
     {
         $counts = $this->trips($user)
             ->whereDate('start_date', '>=', $period->from->toDateString())
@@ -51,7 +53,7 @@ class DashboardService
         ];
     }
 
-    public function schedule(User $user, string $tab): \Illuminate\Support\Collection
+    public function schedule(User $user, string $tab): Collection
     {
         $query = $this->trips($user)->with(['staff:id,name', 'partner:id,name']);
         if ($tab === 'ongoing') {
@@ -137,14 +139,19 @@ class DashboardService
      *
      * @return array<int, array<string, mixed>>
      */
-    public function actions(User $user): array
+    public function actions(User $user, ?array $only = null): array
     {
-        $cards = [];
+        $definitions = [];
+        $add = function (string $key, string $title, string $desc, string $page, Builder $query, string $tone) use (&$definitions, $only): void {
+            if ($only === null || in_array($key, $only, true)) {
+                $definitions[$key] = compact('key', 'title', 'desc', 'page', 'query', 'tone');
+            }
+        };
         $today = today()->toDateString();
 
         // Persetujuan harga: Owner menyetujui, Staff perlu tahu sedang menunggu
         if ($user->can('pricing.approve') || $user->can('pricing.negotiate')) {
-            $cards[] = $this->card(
+            $add(
                 'approval',
                 $user->can('pricing.approve') ? 'Harga menunggu persetujuan Anda' : 'Harga menunggu persetujuan Owner',
                 'Trip tidak bisa dikonfirmasi sampai harga di bawah batas margin disetujui.',
@@ -156,7 +163,7 @@ class DashboardService
         }
 
         // Trip selesai tapi belum direkonsiliasi: profit aktual belum bisa dihitung
-        $cards[] = $this->card(
+        $add(
             'reconcile',
             'Trip selesai belum direkonsiliasi',
             'Profit aktual dan bagi hasil baru tercatat setelah rekonsiliasi.',
@@ -166,7 +173,7 @@ class DashboardService
         );
 
         // Biaya aktual wajib yang masih kosong: penghalang checklist rekonsiliasi
-        $cards[] = $this->card(
+        $add(
             'actual_cost',
             'Biaya aktual belum lengkap',
             'Komponen wajib masih kosong, rekonsiliasi akan ditolak.',
@@ -178,7 +185,7 @@ class DashboardService
         );
 
         // Penawaran kedaluwarsa: kolom quote_valid_until sudah ada tapi belum dipakai
-        $cards[] = $this->card(
+        $add(
             'quote',
             'Penawaran kedaluwarsa',
             'Masa berlaku penawaran lewat tetapi harga final belum disepakati.',
@@ -190,7 +197,7 @@ class DashboardService
         );
 
         // Open Trip di bawah minimum pax: risiko trip tidak jalan
-        $cards[] = $this->card(
+        $add(
             'min_pax',
             'Open Trip belum capai minimum',
             'Peserta masih di bawah minimum pax sementara tanggal mulai mendekat.',
@@ -205,7 +212,7 @@ class DashboardService
         );
 
         // Trip mulai dekat tapi belum lunas
-        $cards[] = $this->card(
+        $add(
             'unpaid',
             'Mulai 7 hari ke depan, belum lunas',
             'Trip segera berjalan tetapi tagihan belum lunas.',
@@ -216,16 +223,33 @@ class DashboardService
             'indigo'
         );
 
-        return array_values(array_filter($cards, fn ($c) => $c['count'] > 0));
+        if (! $definitions) {
+            return [];
+        }
+
+        // One round trip for all counts, with each subquery retaining its visibility scope.
+        $countsQuery = DB::query();
+        foreach ($definitions as $key => $definition) {
+            $countsQuery->selectSub((clone $definition['query'])->selectRaw('count(*)')->toBase(), $key);
+        }
+        $counts = (array) $countsQuery->first();
+        $cards = [];
+        foreach ($definitions as $key => $definition) {
+            $count = (int) ($counts[$key] ?? 0);
+            if ($count > 0) {
+                $cards[] = $this->card(...array_values($definition + ['count' => $count]));
+            }
+        }
+
+        return $cards;
     }
 
     /**
      * Membentuk satu kartu. Jumlah dan daftar contoh diambil terpisah supaya tidak
      * memuat seluruh trip ke memori.
      */
-    private function card(string $key, string $title, string $desc, string $page, Builder $query, string $tone): array
+    private function card(string $key, string $title, string $desc, string $page, Builder $query, string $tone, int $count): array
     {
-        $count = (clone $query)->count();
         $trips = $count > 0
             ? (clone $query)->orderBy('start_date')->limit(4)->get(['id', 'trip_code', 'trip_name', 'start_date', 'status', 'pax'])
             : collect();
