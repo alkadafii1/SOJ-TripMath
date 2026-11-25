@@ -13,7 +13,8 @@ class TripSnapshot extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'trip_id', 'revenue', 'standard_cost', 'negotiated_cost', 'actual_cost',
+        'trip_id', 'recommended_price', 'effective_pax', 'trip_end_date',
+        'revenue', 'standard_cost', 'negotiated_cost', 'actual_cost',
         'vendor_saving', 'customer_discount', 'actual_profit',
         'marketing_percent', 'marketing_base', 'marketing_allocation', 'distributable_profit',
         'owner_percent', 'owner_share', 'partner_percent', 'partner_share', 'profit_rule_set',
@@ -21,6 +22,9 @@ class TripSnapshot extends Model
     ];
 
     protected $casts = [
+        'recommended_price' => 'decimal:2',
+        'effective_pax' => 'integer',
+        'trip_end_date' => 'date',
         'revenue' => 'decimal:2',
         'standard_cost' => 'decimal:2',
         'negotiated_cost' => 'decimal:2',

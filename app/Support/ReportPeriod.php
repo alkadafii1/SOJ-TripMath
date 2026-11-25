@@ -54,8 +54,16 @@ final class ReportPeriod
 
     private static function custom(?string $from, ?string $to): ?self
     {
-        if (blank($from) || blank($to)) {
+        if (blank($from) || blank($to)
+            || ! preg_match('/^\d{4}-\d{2}-\d{2}$/D', $from)
+            || ! preg_match('/^\d{4}-\d{2}-\d{2}$/D', $to)) {
             return null;
+        }
+        foreach ([$from, $to] as $date) {
+            [$year, $month, $day] = array_map('intval', explode('-', $date));
+            if (! checkdate($month, $day, $year)) {
+                return null;
+            }
         }
 
         try {
