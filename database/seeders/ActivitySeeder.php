@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class ActivitySeeder extends Seeder
@@ -112,7 +111,7 @@ class ActivitySeeder extends Seeder
             [
                 'name' => 'One Day Trip Explore Banyuwangi (Ijen Route)',
                 'standard_cost' => 600000,
-                'cost_type' => 'per_group',
+                'cost_type' => 'per_trip',
                 'capacity' => 5,
                 'duration_hours' => 12,
                 'notes' => 'Private trip 1 mobil (1-5 orang) rute Ijen. Termasuk transport, driver/guide. Harga per grup, bukan per orang.',
@@ -123,7 +122,7 @@ class ActivitySeeder extends Seeder
             [
                 'name' => 'One Day Trip Explore Banyuwangi (Baluran Route)',
                 'standard_cost' => 625000,
-                'cost_type' => 'per_group',
+                'cost_type' => 'per_trip',
                 'capacity' => 5,
                 'duration_hours' => 10,
                 'notes' => 'Private trip 1 mobil (1-5 orang) rute Baluran. Termasuk transport, driver/guide.',
@@ -160,7 +159,7 @@ class ActivitySeeder extends Seeder
             [
                 'name' => 'Djawatan - Green Bay - Red Island Tour',
                 'standard_cost' => 1000000,
-                'cost_type' => 'per_group',
+                'cost_type' => 'per_trip',
                 'capacity' => 5,
                 'duration_hours' => 10,
                 'notes' => 'Private trip 1 mobil (1-5 orang) ke De Djawatan, Teluk Hijau, Pulau Merah. Termasuk transport, driver/guide.',
@@ -184,7 +183,7 @@ class ActivitySeeder extends Seeder
             [
                 'name' => 'Off-road Jeep Ijen (Maintenance)',
                 'standard_cost' => 750000,
-                'cost_type' => 'per_group',
+                'cost_type' => 'per_trip',
                 'capacity' => 6,
                 'duration_hours' => 6,
                 'notes' => 'Jeep tour ke Ijen, sementara tidak beroperasi karena perawatan kendaraan.',
@@ -195,7 +194,7 @@ class ActivitySeeder extends Seeder
         ];
 
         foreach ($activities as $activity) {
-            DB::table('activities')->insert([
+            SeedDefaults::insertIfMissing('activities', ['name' => $activity['name']], [
                 'vendor_id' => null, // Sesuaikan jika ada vendor
                 'name' => $activity['name'],
                 'standard_cost' => $activity['standard_cost'],
@@ -204,7 +203,7 @@ class ActivitySeeder extends Seeder
                 'duration_hours' => $activity['duration_hours'],
                 'notes' => $activity['notes'],
                 'status' => $activity['status'],
-                'valid_from' => $activity['valid_from'],
+                'valid_from' => $activity['status'] === 'active' ? $activity['valid_from'] : $now->copy()->subYear(),
                 'valid_until' => $activity['valid_until'],
                 'created_at' => $now,
                 'updated_at' => $now,

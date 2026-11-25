@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class VendorSeeder extends Seeder
@@ -226,7 +225,7 @@ class VendorSeeder extends Seeder
         ];
 
         foreach ($vendors as $vendor) {
-            DB::table('vendors')->insert([
+            SeedDefaults::insertIfMissing('vendors', ['name' => $vendor['name']], [
                 'name' => $vendor['name'],
                 'category' => $vendor['category'],
                 'contact' => $vendor['contact'],

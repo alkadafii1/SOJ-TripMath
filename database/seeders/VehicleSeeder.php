@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class VehicleSeeder extends Seeder
@@ -298,7 +297,7 @@ class VehicleSeeder extends Seeder
         ];
 
         foreach ($vehicles as $vehicle) {
-            DB::table('vehicles')->insert([
+            SeedDefaults::insertIfMissing('vehicles', ['type' => $vehicle['type']], [
                 'vendor_id' => null, // Sesuaikan jika ada vendor
                 'type' => $vehicle['type'],
                 'capacity' => $vehicle['capacity'],
@@ -307,7 +306,7 @@ class VehicleSeeder extends Seeder
                 'driver_included' => $vehicle['driver_included'],
                 'fuel_included' => $vehicle['fuel_included'],
                 'notes' => $vehicle['notes'],
-                'status' => $vehicle['status'],
+                'status' => $vehicle['status'] === 'maintenance' ? 'inactive' : $vehicle['status'],
                 'valid_from' => $vehicle['valid_from'],
                 'valid_until' => $vehicle['valid_until'],
                 'created_at' => $now,

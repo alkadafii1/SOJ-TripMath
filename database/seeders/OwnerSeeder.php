@@ -9,6 +9,10 @@ class OwnerSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            return;
+        }
+
         $accounts = [
             ['Owner SOJ',   'owner@soj.test',   'owner',   true],
             ['Partner SOJ', 'partner@soj.test', 'partner', false],
@@ -16,7 +20,7 @@ class OwnerSeeder extends Seeder
         ];
 
         foreach ($accounts as [$name, $email, $role, $finance]) {
-            $user = User::updateOrCreate(
+            $user = User::firstOrCreate(
                 ['email' => $email],
                 [
                     'name' => $name,
@@ -26,7 +30,9 @@ class OwnerSeeder extends Seeder
                     'financial_visibility' => $finance,
                 ]
             );
-            $user->syncRoles([$role]);
+            if ($user->wasRecentlyCreated) {
+                $user->syncRoles([$role]);
+            }
         }
     }
 }

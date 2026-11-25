@@ -13,6 +13,15 @@ class PackageSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            return;
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () {
+        // Do not resurrect a package deliberately soft-deleted by the owner.
+        if (Package::onlyTrashed()->where('name', 'Open Trip 2D1N - Opsi B')->exists()) {
+            return;
+        }
         $package = Package::firstOrCreate(
             ['name' => 'Open Trip 2D1N - Opsi B'],
             [
@@ -26,14 +35,8 @@ class PackageSeeder extends Seeder
             return; // jangan menimpa data yang sudah ada
         }
 
-        $dest = fn (string $name, string $category) => Destination::firstOrCreate(
-            ['name' => $name],
-            ['category' => $category, 'location' => 'Banyuwangi', 'standard_cost' => 0, 'status' => 'active']
-        );
-        $meal = fn (string $type) => Meal::firstOrCreate(
-            ['meal_type' => $type, 'vendor_id' => null],
-            ['cost_per_person' => 0, 'status' => 'active']
-        );
+        $dest = fn (string $name, string $category) => Destination::where('name', $name)->firstOrFail();
+        $meal = fn (string $type) => Meal::where('meal_type', $type)->firstOrFail();
 
         $version = $package->versions()->create([
             'version_no' => 1,
@@ -47,22 +50,18 @@ class PackageSeeder extends Seeder
         ]);
 
         $rows = [
-            [$dest('De Djawatan', 'wisata alam'), 'destination', 1],
-            [$dest('Pantai Mustika', 'pantai'), 'destination', 1],
-            [$dest('Pulau Merah', 'pantai'), 'destination', 1],
-            [$meal('lunch'), 'meal', 1],
-            [$meal('dinner'), 'meal', 1],
+            [$dest('De Djawatan Forest', 'wisata alam'), 'destination', 1],
+            [$dest('Pantai Mustika & Pulau Bedil', 'pantai'), 'destination', 1],
+            [$dest('Pantai Pulau Merah', 'pantai'), 'destination', 1],
+            [$meal('Lunch Box Standar'), 'meal', 1],
+            [$meal('Dinner Box'), 'meal', 1],
             [$dest('Kawah Ijen', 'gunung'), 'destination', 2],
             [$dest('Taman Nasional Baluran', 'taman nasional'), 'destination', 2],
-            [$meal('breakfast'), 'meal', 2],
+            [$meal('Breakfast Box (Nasi Goreng)'), 'meal', 2],
         ];
 
-        if ($hotel = Hotel::where('name', 'Hotel Kokoon')->first()) {
-            $rows[] = [$hotel, 'hotel', 1];
-        }
-        if ($bus = Vehicle::where('type', 'Bus')->first()) {
-            $rows[] = [$bus, 'vehicle', 1];
-        }
+        $rows[] = [Hotel::where('name', 'Hotel Kokoon')->firstOrFail(), 'hotel', 1];
+        $rows[] = [Vehicle::where('type', 'Hino RK8 Big Bus')->firstOrFail(), 'vehicle', 1];
 
         foreach ($rows as [$model, $type, $day]) {
             $version->items()->create([
@@ -72,5 +71,6 @@ class PackageSeeder extends Seeder
                 'day_no' => $day,
             ]);
         }
+        });
     }
 }
