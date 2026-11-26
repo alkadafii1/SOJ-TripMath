@@ -164,10 +164,69 @@ class PricingPage extends Component
                     ['negotiated_cost' => $old], ['negotiated_cost' => $new], $note);
                 $changed++;
             }
+
+            // --- LOGIKA BARU DITAMBAHKAN DI SINI ---
+            // Setelah biaya vendor negosiasi disimpan, hitung ulang harga rekomendasi 
+            // dan simpan sebagai harga final agar muncul di tabel list.
+            $rule = $this->svc()->activeRule();
+            if ($rule) {
+                $rec = $this->svc()->recommend($this->trip, $rule->method, (string) $rule->rate_percent, $rule->rounding_rule, $this->mode);
+                $recommended = $this->mode === 'package'
+                    ? ($this->validMoney($this->packagePrice) ? $this->calc()->toMoney($this->packagePrice) : $rec['recommended'])
+                    : $rec['recommended'];
+
+                if ($recommended !== null) {
+                    $existing = $this->pricingRow();
+                    $data = [
+                        'pricing_rule_id' => $rule->id,
+                        'pricing_mode' => $this->mode,
+                        'pricing_method' => $rule->method,
+                        'rate_percent' => $rule->rate_percent,
+                        'rounding_rule' => $rule->rounding_rule,
+                        'min_margin_threshold' => $rule->min_margin_threshold,
+                        'block_below_min' => $rule->block_below_min,
+                        'require_approval' => $rule->require_approval,
+                        'recommended_price' => $recommended,
+                        'final_price' => $recommended, // Otomatis set final_price = recommended
+                        'approval_status' => 'none',
+                        'approved_by' => null,
+                        'approved_at' => null,
+                    ];
+
+                    if ($this->mode === 'per_pax') {
+                        $data['price_per_pax'] = $this->calc()->calculatePricePerPax((string) $recommended, $this->trip->effectivePax());
+                    } else {
+                        $data['price_per_pax'] = null;
+                    }
+
+                    if ($existing) {
+                        $oldRecommended = $existing->recommended_price;
+                        $oldFinal = $existing->final_price;
+                        $existing->update($data);
+                        AuditLogger::record('trip_pricing', $existing->id, 'auto_saved_final',
+                            ['recommended_price' => $oldRecommended, 'final_price' => $oldFinal], 
+                            ['recommended_price' => $recommended, 'final_price' => $recommended], 
+                            $note);
+                    } else {
+                        $pricing = TripPricingModel::create($data + ['trip_id' => $this->trip->id]);
+                        AuditLogger::record('trip_pricing', $pricing->id, 'created_with_final', null, [
+                            'recommended_price' => $recommended,
+                            'final_price' => $recommended,
+                            'pricing_mode' => $this->mode,
+                            'pricing_rule_id' => $rule->id,
+                        ]);
+                    }
+                }
+            }
+            // --- AKHIR LOGIKA BARU ---
         });
 
         $this->negotiationNote = '';
-        session()->flash('status', $changed ? "{$changed} biaya negosiasi disimpan." : 'Tidak ada perubahan.');
+        $this->loadState(); // Refresh state agar form harga terisi otomatis
+        
+        session()->flash('status', $changed 
+            ? "{$changed} biaya negosiasi disimpan. Harga rekomendasi telah dihitung dan diset sebagai harga final." 
+            : 'Tidak ada perubahan biaya negosiasi, namun harga rekomendasi diperbarui.');
     }
 
     // 2. mulai negosiasi harga
