@@ -146,6 +146,12 @@ new class extends Component
                 </div>
             @endcan
 
+            @can('audit.view')
+                <div class="space-y-1">
+                    <p class="px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Pengawasan</p>
+                    <x-sidebar-link :href="route('audit')" icon="database" :active="request()->routeIs('audit')">Audit Log</x-sidebar-link>
+                </div>
+            @endcan
         </nav>
 
         {{-- Pengguna --}}

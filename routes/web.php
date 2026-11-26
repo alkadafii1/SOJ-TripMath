@@ -39,8 +39,13 @@ Route::middleware('auth')->group(function () {
         ->middleware('can:view-finance');
 });
 
-Route::get('packages', PackageIndex::class)->name('packages');
-Route::get('packages/{package}', PackageDetail::class)->name('packages.show');
+Route::middleware(['auth', 'permission:master.view'])->group(function () {
+    Route::get('packages', PackageIndex::class)->name('packages');
+    Route::get('packages/{package}', PackageDetail::class)->name('packages.show');
+});
+
+Route::get('audit', \App\Livewire\Audit\AuditIndex::class)
+    ->middleware(['auth', 'permission:audit.view'])->name('audit');
 
 Route::middleware(['auth', 'permission:master.view'])
     ->prefix('master')->name('master.')->group(function () {
