@@ -30,16 +30,6 @@
             <p class="text-sm text-gray-500">Semua laporan memakai snapshot trip yang sudah direkonsiliasi dan dikelompokkan menurut tanggal selesai trip.</p>
         </div>
 
-        {{-- Pilihan laporan --}}
-        <div class="flex flex-wrap gap-2 print:hidden">
-            @foreach ($reports as $val => $label)
-                <button type="button" wire:click="$set('report', '{{ $val }}')"
-                        class="px-3 py-1.5 rounded-md text-sm font-medium {{ $key === $val ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                    {{ $label }}
-                </button>
-            @endforeach
-        </div>
-
         {{-- Periode dan unduhan --}}
         <div class="flex flex-wrap items-end justify-between gap-3 print:hidden">
             <div class="flex flex-wrap items-end gap-2">

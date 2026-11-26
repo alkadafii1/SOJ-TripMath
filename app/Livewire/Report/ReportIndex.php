@@ -5,10 +5,12 @@ namespace App\Livewire\Report;
 use App\Services\ReportService;
 use App\Support\ReportPeriod;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class ReportIndex extends Component
 {
+    #[Url(except: 'trip-profit')]
     public string $report = 'trip-profit';
     public string $preset = 'month';
     public string $from = '';
@@ -41,7 +43,6 @@ class ReportIndex extends Component
             'data' => app(ReportService::class)->report($key, $period),
             'period' => $period,
             'error' => $error,
-            'reports' => ReportService::REPORTS,
             'presets' => ReportPeriod::PRESETS,
             'canExport' => Gate::allows('report.export'),
         ]);

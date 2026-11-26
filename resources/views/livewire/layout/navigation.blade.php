@@ -28,6 +28,18 @@ new class extends Component
     $onPackages = request()->routeIs('packages*') || request()->is('master/packages*');
     $onMaster = request()->routeIs('master.*') && ! $onPackages;
     $onReports = request()->routeIs('reports*');
+    $selectedReport = request()->query('report', 'trip-profit');
+    if (! array_key_exists((string) $selectedReport, \App\Services\ReportService::REPORTS)) {
+        $selectedReport = 'trip-profit';
+    }
+    $reportLinks = [
+        'trip-profit' => 'Profit Trip',
+        'vendor-saving' => 'Vendor Saving',
+        'customer-discount' => 'Customer Discount',
+        'profit-sharing' => 'Bagi Hasil',
+        'cost-variance' => 'Selisih Biaya',
+        'trend' => 'Tren Revenue',
+    ];
 @endphp
 
 <div @keydown.escape.window="open = false">
@@ -115,12 +127,11 @@ new class extends Component
 
                             {{-- Sub-menu Laporan mengikuti scroll sidebar. --}}
                             <div x-show="reportOpen" x-collapse class="mt-1 space-y-0.5 pl-10">
-                                <a href="{{ route('reports', ['report' => 'trip']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'trip' ? 'text-indigo-600 bg-slate-50' : '' }}">Profit Trip</a>
-                                <a href="{{ route('reports', ['report' => 'vendor']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'vendor' ? 'text-indigo-600 bg-slate-50' : '' }}">Vendor Saving</a>
-                                <a href="{{ route('reports', ['report' => 'discount']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'discount' ? 'text-indigo-600 bg-slate-50' : '' }}">Customer Discount</a>
-                                <a href="{{ route('reports', ['report' => 'share']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'share' ? 'text-indigo-600 bg-slate-50' : '' }}">Bagi Hasil</a>
-                                <a href="{{ route('reports', ['report' => 'difference']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'difference' ? 'text-indigo-600 bg-slate-50' : '' }}">Selisih Biaya</a>
-                                <a href="{{ route('reports', ['report' => 'trend']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'trend' ? 'text-indigo-600 bg-slate-50' : '' }}">Tren Revenue</a>
+                                @foreach ($reportLinks as $reportKey => $reportLabel)
+                                    <a href="{{ route('reports', ['report' => $reportKey]) }}" wire:navigate
+                                       @if (request()->routeIs('reports') && $selectedReport === $reportKey) aria-current="page" @endif
+                                       class="block rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ request()->routeIs('reports') && $selectedReport === $reportKey ? 'text-indigo-600 bg-slate-50' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600' }}">{{ $reportLabel }}</a>
+                                @endforeach
                             </div>
                         </div>
                     @endcan
