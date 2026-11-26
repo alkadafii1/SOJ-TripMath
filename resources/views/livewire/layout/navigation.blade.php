@@ -27,6 +27,7 @@ new class extends Component
     // Halaman Paket beralamat di bawah /master, jadi dibedakan dulu dari Data Master
     $onPackages = request()->routeIs('packages*') || request()->is('master/packages*');
     $onMaster = request()->routeIs('master.*') && ! $onPackages;
+    $onReports = request()->routeIs('reports*');
 @endphp
 
 <div @keydown.escape.window="open = false">
@@ -78,8 +79,8 @@ new class extends Component
             </button>
         </div>
 
-        {{-- Menu --}}
-        <nav class="flex-1 space-y-6 overflow-y-auto px-4 py-3">
+        {{-- Menu: Ditambahkan 'overflow-visible' agar tidak ada scroll bawaan di sidebar --}}
+        <nav class="flex-1 space-y-6 overflow-visible px-4 py-3">
             <div class="space-y-1">
                 <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Operasional</p>
                 <x-sidebar-link :href="route('dashboard')" icon="home" :active="request()->routeIs('dashboard')">Dashboard</x-sidebar-link>
@@ -88,7 +89,36 @@ new class extends Component
                 @endcan
                 @can('report.view')
                     @can('view-finance')
-                        <x-sidebar-link :href="route('reports')" icon="chart-bar" :active="request()->routeIs('reports*')">Laporan</x-sidebar-link>
+                        {{-- DROPDOWN LAPORAN --}}
+                        <div x-data="{ reportOpen: {{ $onReports ? 'true' : 'false' }} }" class="relative">
+                            <button @click="reportOpen = !reportOpen" 
+                                    type="button"
+                                    class="group flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 {{ $onReports ? 'bg-indigo-50/80 text-indigo-700 shadow-sm ring-1 ring-indigo-100' : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-700' }}">
+                                
+                                <div class="flex items-center gap-3">
+                                    <x-icon name="chart-bar" class="h-5 w-5 shrink-0 transition-colors duration-200 {{ $onReports ? 'text-indigo-600' : 'text-slate-400 group-hover:text-indigo-600' }}" />
+                                    <span>Laporan</span>
+                                </div>
+
+                                <span class="flex-1"></span>
+
+                                <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200" 
+                                     :class="{ 'rotate-90': reportOpen }" 
+                                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                            
+                            {{-- Sub-menu Laporan (Scrollable jika isinya banyak) --}}
+                            <div x-show="reportOpen" x-collapse class="mt-1 space-y-0.5 pl-10 max-h-48 overflow-y-auto">
+                                <a href="{{ route('reports', ['report' => 'trip']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'trip' ? 'text-indigo-600 bg-slate-50' : '' }}">Profit Trip</a>
+                                <a href="{{ route('reports', ['report' => 'vendor']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'vendor' ? 'text-indigo-600 bg-slate-50' : '' }}">Vendor Saving</a>
+                                <a href="{{ route('reports', ['report' => 'discount']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'discount' ? 'text-indigo-600 bg-slate-50' : '' }}">Customer Discount</a>
+                                <a href="{{ route('reports', ['report' => 'share']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'share' ? 'text-indigo-600 bg-slate-50' : '' }}">Bagi Hasil</a>
+                                <a href="{{ route('reports', ['report' => 'difference']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'difference' ? 'text-indigo-600 bg-slate-50' : '' }}">Selisih Biaya</a>
+                                <a href="{{ route('reports', ['report' => 'trend']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'trend' ? 'text-indigo-600 bg-slate-50' : '' }}">Tren Revenue</a>
+                            </div>
+                        </div>
                     @endcan
                 @endcan
             </div>
@@ -117,13 +147,12 @@ new class extends Component
                             <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200" 
                                  :class="{ 'rotate-90': dropdownOpen }" 
                                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                {{-- Path panah kanan (Chevron Right) --}}
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                             </svg>
                         </button>
                         
                         {{-- Sub-menu Data Master (Muncul ke Bawah) --}}
-                        <div x-show="dropdownOpen" x-collapse class="mt-1 space-y-0.5 pl-10">
+                        <div x-show="dropdownOpen" x-collapse class="mt-1 space-y-0.5 pl-10 max-h-48 overflow-y-auto">
                             <a href="{{ url('/master/vendors') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/vendors*') ? 'text-indigo-600 bg-slate-50' : '' }}">Vendor</a>
                             <a href="{{ url('/master/hotels') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/hotels*') ? 'text-indigo-600 bg-slate-50' : '' }}">Hotel</a>
                             <a href="{{ url('/master/vehicles') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/vehicles*') ? 'text-indigo-600 bg-slate-50' : '' }}">Kendaraan</a>
