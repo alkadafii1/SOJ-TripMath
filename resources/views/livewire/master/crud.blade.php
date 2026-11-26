@@ -1,24 +1,11 @@
 <div class="py-8">
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
 
-        {{-- Tab antar entitas --}}
-        @if (count($tabs))
-            <div class="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
-                @foreach ($tabs as $key => [$route, $label])
-                    <a href="{{ route($route) }}" wire:navigate
-                    class="px-3 py-1.5 rounded-md text-sm font-medium
-                            {{ $currentTab === $key ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                        {{ $label }}
-                    </a>
-                @endforeach
-            </div>
-        @endif
-
         <div class="flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-800">{{ $heading }}</h2>
             @if ($canManage)
                 <button wire:click="create"
-                        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-500">
+                        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-500 transition-colors">
                     + Tambah
                 </button>
             @endif

@@ -88,7 +88,7 @@ new class extends Component
                 @endcan
                 @can('report.view')
                     @can('view-finance')
-                        <x-sidebar-link :href="route('reports')" icon="chart" :active="request()->routeIs('reports*')">Laporan</x-sidebar-link>
+                        <x-sidebar-link :href="route('reports')" icon="chart-bar" :active="request()->routeIs('reports*')">Laporan</x-sidebar-link>
                     @endcan
                 @endcan
             </div>
@@ -97,7 +97,44 @@ new class extends Component
                 <div class="space-y-1">
                     <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Katalog</p>
                     <x-sidebar-link :href="route('packages')" icon="box" :active="$onPackages">Paket</x-sidebar-link>
-                    <x-sidebar-link :href="route('master.vendors')" icon="database" :active="$onMaster">Data Master</x-sidebar-link>
+                    
+                    {{-- DROPDOWN DATA MASTER --}}
+                    <div x-data="{ dropdownOpen: {{ $onMaster ? 'true' : 'false' }} }" class="relative">
+                        <button @click="dropdownOpen = !dropdownOpen" 
+                                type="button"
+                                class="group flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 {{ $onMaster ? 'bg-indigo-50/80 text-indigo-700 shadow-sm ring-1 ring-indigo-100' : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-700' }}">
+                            
+                            {{-- Bagian Kiri: Ikon & Teks --}}
+                            <div class="flex items-center gap-3">
+                                <x-icon name="database" class="h-5 w-5 shrink-0 transition-colors duration-200 {{ $onMaster ? 'text-indigo-600' : 'text-slate-400 group-hover:text-indigo-600' }}" />
+                                <span>Data Master</span>
+                            </div>
+
+                            {{-- Spacer: Mendorong panah ke kanan --}}
+                            <span class="flex-1"></span>
+
+                            {{-- Bagian Kanan: Ikon Panah Kanan (Berputar ke Bawah saat dibuka) --}}
+                            <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200" 
+                                 :class="{ 'rotate-90': dropdownOpen }" 
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                {{-- Path panah kanan (Chevron Right) --}}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                        
+                        {{-- Sub-menu Data Master (Muncul ke Bawah) --}}
+                        <div x-show="dropdownOpen" x-collapse class="mt-1 space-y-0.5 pl-10">
+                            <a href="{{ url('/master/vendors') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/vendors*') ? 'text-indigo-600 bg-slate-50' : '' }}">Vendor</a>
+                            <a href="{{ url('/master/hotels') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/hotels*') ? 'text-indigo-600 bg-slate-50' : '' }}">Hotel</a>
+                            <a href="{{ url('/master/vehicles') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/vehicles*') ? 'text-indigo-600 bg-slate-50' : '' }}">Kendaraan</a>
+                            <a href="{{ url('/master/destinations') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/destinations*') ? 'text-indigo-600 bg-slate-50' : '' }}">Destinasi</a>
+                            <a href="{{ url('/master/activities') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/activities*') ? 'text-indigo-600 bg-slate-50' : '' }}">Aktivitas</a>
+                            <a href="{{ url('/master/meals') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/meals*') ? 'text-indigo-600 bg-slate-50' : '' }}">Meal</a>
+                            <a href="{{ url('/master/others') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/others*') ? 'text-indigo-600 bg-slate-50' : '' }}">Biaya Lain</a>
+                        </div>
+                    </div>
+                    {{-- AKHIR DROPDOWN --}}
+
                 </div>
             @endcan
 
