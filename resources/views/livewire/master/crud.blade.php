@@ -75,7 +75,7 @@
                             @endforeach
                             <td class="px-4 py-3 text-right whitespace-nowrap space-x-3">
                                 @if ($detailRoute)
-                                    <a href="{{ route($detailRoute, $row->id) }}" wire:navigate class="text-emerald-700 hover:underline">Kelola versi</a>
+                                    <a href="{{ route($detailRoute, $row->id) }}" wire:navigate class="text-emerald-700 hover:underline">{{ $currentTab === 'package' ? 'Buka template' : 'Kelola versi' }}</a>
                                 @endif
                                 @if ($canManage)
                                     <button wire:click="edit({{ $row->id }})" class="text-indigo-600 hover:underline">Ubah</button>
