@@ -9,13 +9,50 @@ use Illuminate\Database\Eloquent\Model;
 
 class PackageIndex extends MasterCrud
 {
-    protected function modelClass(): string { return Package::class; }
-    protected function entity(): string { return 'package'; }
-    protected function heading(): string { return 'Paket Wisata'; }
-    protected function searchFields(): array { return ['name', 'trip_type']; }
-    protected function manageAbility(): string { return 'package.manage'; }
-    protected function detailRoute(): ?string { return 'packages.show'; }
-    protected function tabs(): array { return []; }
+    protected function modelClass(): string
+    {
+        return Package::class;
+    }
+
+    protected function entity(): string
+    {
+        return 'package';
+    }
+
+    protected function heading(): string
+    {
+        return 'Template Paket Wisata';
+    }
+
+    protected function searchFields(): array
+    {
+        return ['name', 'trip_type'];
+    }
+
+    protected function manageAbility(): string
+    {
+        return 'package.manage';
+    }
+
+    protected function detailRoute(): ?string
+    {
+        return 'packages.show';
+    }
+
+    protected function relations(): array
+    {
+        return ['latestVersion.items.item'];
+    }
+
+    protected function notice(): ?string
+    {
+        return 'Paket adalah rancangan layanan, bukan harga jual final. Buka detail untuk menyusun itinerary dan layanan, lalu gunakan versi aktif untuk membuat trip customer.';
+    }
+
+    protected function tabs(): array
+    {
+        return [];
+    }
 
     protected function fields(): array
     {
@@ -24,7 +61,7 @@ class PackageIndex extends MasterCrud
             $this->f('trip_type', 'Tipe trip', 'select',
                 ['required', 'in:'.Options::keys(Options::TRIP_TYPES)],
                 ['options' => Options::TRIP_TYPES]),
-            $this->f('description', 'Deskripsi', 'textarea', ['nullable', 'string', 'max:2000']),
+            $this->f('description', 'Deskripsi', 'textarea', ['nullable', 'string', 'max:2000'], ['help' => 'Ringkasan produk perjalanan. Durasi, itinerary, dan layanan diatur pada detail template.']),
             $this->statusField(),
         ];
     }
@@ -33,7 +70,9 @@ class PackageIndex extends MasterCrud
     {
         return [
             ['key' => 'name', 'label' => 'Paket'],
-            ['key' => 'trip_type', 'label' => 'Tipe'],
+            ['key' => 'trip_type_label', 'label' => 'Tipe'],
+            ['key' => 'template_summary', 'label' => 'Rencana terbaru'],
+            ['key' => 'template_destinations', 'label' => 'Destinasi'],
             ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
         ];
     }

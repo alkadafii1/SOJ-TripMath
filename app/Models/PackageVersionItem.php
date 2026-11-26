@@ -10,12 +10,12 @@ class PackageVersionItem extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'package_version_id', 'item_type', 'item_id', 'quantity', 'day_no', 'notes',
+        'package_version_id', 'item_type', 'item_id', 'quantity', 'day_no', 'duration_qty', 'notes',
     ];
 
     protected function casts(): array
     {
-        return ['quantity' => 'decimal:4'];
+        return ['quantity' => 'decimal:4', 'duration_qty' => 'integer', 'day_no' => 'integer'];
     }
 
     public function version()

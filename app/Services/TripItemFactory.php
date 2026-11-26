@@ -18,6 +18,13 @@ class TripItemFactory
 
     public static function make(string $type, Model $m, Trip $trip): array
     {
+        $attributes = self::masterAttributes($type, $m);
+
+        return $attributes + ['duration_qty' => self::defaultDuration($attributes['cost_type'], $trip)];
+    }
+
+    public static function masterAttributes(string $type, Model $m): array
+    {
         [$category, $costType, $rate, $capacity] = match ($type) {
             'hotel' => ['Akomodasi', $m->cost_type ?: 'per_room', $m->standard_rate, $m->occupancy],
             'vehicle' => ['Transportasi', $m->cost_type ?: 'per_day', $m->standard_cost, $m->capacity],
@@ -40,12 +47,37 @@ class TripItemFactory
             'item_name' => PackageVersionItem::labelFor($type, $m),
             'cost_type' => $costType,
             'cost_behavior' => self::behaviorFor($costType, $hasUnits, null),
-            'duration_qty' => self::defaultDuration($costType, $trip),
+
             'unit_capacity' => $capacity,
             'percentage' => $isCostItem ? $m->percentage : null,
             'base_type' => $isCostItem ? $m->base_type : null,
             'standard_cost' => $rate ?? 0,
         ];
+    }
+
+    public static function templateInfo(string $type, Model $master): array
+    {
+        $data = self::masterAttributes($type, $master);
+        $costType = $data['cost_type'];
+
+        return $data + [
+            'automatic_quantity' => self::automaticQuantity($costType, $data['unit_capacity']),
+            'uses_duration' => in_array($costType, self::DURATION_TYPES, true),
+            'duration_label' => $costType === 'per_day' ? 'hari' : 'malam',
+            'quantity_label' => match ($costType) {
+                'per_room' => 'Jumlah kamar',
+                'per_vehicle' => 'Jumlah kendaraan',
+                'per_person' => 'Seluruh peserta trip',
+                'percentage' => 'Mengikuti dasar persentase',
+                default => 'Jumlah unit layanan',
+            },
+        ];
+    }
+
+    public static function automaticQuantity(string $costType, ?int $capacity): bool
+    {
+        return in_array($costType, ['per_person', 'percentage'], true)
+            || ($capacity > 0 && in_array($costType, self::UNIT_TYPES, true));
     }
 
     /**

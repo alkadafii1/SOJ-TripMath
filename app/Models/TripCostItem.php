@@ -9,7 +9,7 @@ class TripCostItem extends Model
 {
     protected $fillable = [
         'trip_id', 'item_type', 'item_id', 'vendor_id', 'category', 'item_name',
-        'cost_type', 'cost_behavior', 'quantity', 'duration_qty', 'unit_capacity',
+        'cost_type', 'cost_behavior', 'quantity', 'duration_qty', 'unit_capacity', 'day_no', 'follows_trip_duration',
         'people_count', 'calculated_quantity', 'override_quantity', 'override_reason',
         'overridden_by', 'overridden_at', 'percentage', 'base_type',
         'is_required', 'is_additional',
@@ -20,6 +20,8 @@ class TripCostItem extends Model
     protected function casts(): array
     {
         return [
+            'follows_trip_duration' => 'boolean',
+            'day_no' => 'integer',
             'standard_cost' => 'decimal:2',
             'negotiated_cost' => 'decimal:2',
             'actual_cost' => 'decimal:2',
@@ -36,7 +38,10 @@ class TripCostItem extends Model
         return $query->whereNull('voided_at');
     }
 
-    public function trip() { return $this->belongsTo(Trip::class); }
+    public function trip()
+    {
+        return $this->belongsTo(Trip::class);
+    }
 
     public function item()
     {

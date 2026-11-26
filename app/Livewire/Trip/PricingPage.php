@@ -32,6 +32,17 @@ class PricingPage extends Component
 
     public string $approvalNote = '';
 
+    public function boot(): void
+    {
+        abort_unless(auth()->check() && ! auth()->user()->hasRole('partner')
+            && Gate::allows('trip.view') && Gate::allows('view-costs'), 403);
+    }
+
+    public function hydrate(): void
+    {
+        abort_unless(Trip::visibleTo(Auth::user())->whereKey($this->trip->id)->exists(), 403);
+    }
+
     public function mount(Trip $trip): void
     {
         abort_unless(Gate::allows('trip.view') && Gate::allows('view-costs'), 403);
@@ -359,7 +370,7 @@ class PricingPage extends Component
             'price.requested' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'price.final' => ['nullable', 'numeric', 'gt:0', 'decimal:0,2'],
             'price.payment_terms' => ['nullable', 'string', 'max:1000'],
-            'price.quote_valid_until' => ['nullable', 'date'],
+            'price.quote_valid_until' => ['nullable', 'date_format:Y-m-d'],
             'price.terms' => ['nullable', 'string', 'max:2000'],
             'price.below_min_reason' => ['nullable', 'string', 'max:1000'],
             'price.change_reason' => ['nullable', 'string', 'max:500'],

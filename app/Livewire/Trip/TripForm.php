@@ -8,19 +8,23 @@ use App\Models\Trip;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TripCostService;
+use App\Services\TripItemFactory;
 use App\Services\TripService;
 use App\Support\Options;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
-
 class TripForm extends Component
 {
     public ?Trip $trip = null;
+
     public ?int $packageVersionId = null;
+
     public array $destinationIds = [];
+
     public array $form = [];
 
     public function mount(?Trip $trip = null): void
@@ -59,12 +63,59 @@ class TripForm extends Component
         $this->form = [
             'trip_name' => null, 'customer_name' => null, 'customer_contact' => null,
             'trip_type' => 'private', 'start_date' => null, 'end_date' => null,
-            'pax' => 2, 
+            'pax' => 2,
             // b. Tambah nights di mode baru
-            'nights' => null, 
+            'nights' => null,
             'min_pax' => null, 'max_capacity' => null, 'confirmed_pax' => null,
             'assigned_staff_id' => null, 'assigned_partner_id' => null, 'notes' => null,
         ];
+        if (request()->filled('template')) {
+            $this->packageVersionId = (int) request()->query('template');
+            $this->updatedPackageVersionId();
+        }
+    }
+
+    public function updatedPackageVersionId(): void
+    {
+        if ($this->trip || ! $this->packageVersionId) {
+            return;
+        }
+        $version = PackageVersion::with('package')->where('status', 'active')
+            ->whereHas('package', fn ($query) => $query->where('status', 'active'))
+            ->find($this->packageVersionId);
+        if (! $version) {
+            $this->addError('packageVersionId', 'Template tidak aktif atau tidak ditemukan.');
+
+            return;
+        }
+        $this->resetErrorBag('packageVersionId');
+        $this->form['trip_name'] = $version->package->name;
+        $this->form['trip_type'] = $version->package->trip_type;
+        if ($version->nights !== null) {
+            $this->form['nights'] = $version->nights;
+        }
+        $this->applyTemplateDates($version);
+    }
+
+    public function updatedForm($value, $key): void
+    {
+        if ($key !== 'start_date' || $this->trip || ! $this->packageVersionId) {
+            return;
+        }
+        $version = PackageVersion::where('status', 'active')
+            ->whereHas('package', fn ($query) => $query->where('status', 'active'))->find($this->packageVersionId);
+        if ($version) {
+            $this->applyTemplateDates($version);
+        }
+    }
+
+    protected function applyTemplateDates(PackageVersion $version): void
+    {
+        $start = $this->form['start_date'] ?? null;
+        if (! $version->duration_days || ! $start || validator(['date' => $start], ['date' => 'date_format:Y-m-d'])->fails()) {
+            return;
+        }
+        $this->form['end_date'] = Carbon::parse($start)->addDays($version->duration_days - 1)->toDateString();
     }
 
     protected function formRules(): array
@@ -110,23 +161,27 @@ class TripForm extends Component
         }
         if ($data['max_capacity'] !== null && (int) $data['pax'] > (int) $data['max_capacity']) {
             $this->addError('form.pax', 'Pax melebihi kapasitas maksimum.');
+
             return;
         }
         if ($data['min_pax'] !== null && $data['max_capacity'] !== null && (int) $data['min_pax'] > (int) $data['max_capacity']) {
             $this->addError('form.min_pax', 'Minimum pax melebihi kapasitas maksimum.');
+
             return;
         }
         if ($data['confirmed_pax'] !== null && $data['max_capacity'] !== null && (int) $data['confirmed_pax'] > (int) $data['max_capacity']) {
             $this->addError('form.confirmed_pax', 'Confirmed pax melebihi kapasitas maksimum.');
+
             return;
         }
 
         $duration = Trip::daysBetween($data['start_date'], $data['end_date']);
-        
+
         // d. Logika Penentuan Jumlah Malam (Nights)
         $nights = ($data['nights'] ?? null) !== null ? (int) $data['nights'] : max($duration - 1, 0);
         if ($nights > $duration) {
             $this->addError('form.nights', 'Jumlah malam tidak boleh lebih banyak dari jumlah hari ('.$duration.').');
+
             return;
         }
         $data['nights'] = $nights;
@@ -139,6 +194,7 @@ class TripForm extends Component
                 $version = PackageVersion::where('status', 'active')->find($this->packageVersionId);
                 if (! $version) {
                     $this->addError('packageVersionId', 'Versi paket tidak aktif.');
+
                     return;
                 }
             }
@@ -149,7 +205,7 @@ class TripForm extends Component
                     'duration_days' => $duration,
                     'status' => 'draft',
                     'package_version_id' => $version?->id,
-                    'itinerary' => $version?->itinerary,
+                    'itinerary' => $version?->itineraryForTrip(),
                     'inclusions' => $version?->inclusions,
                     'exclusions' => $version?->exclusions,
                     'created_by' => Auth::id(),
@@ -174,6 +230,18 @@ class TripForm extends Component
             session()->flash('status', "Trip {$trip->trip_code} dibuat.");
         } else {
             $trip = $this->trip;
+            foreach ($trip->costItems()->active()->whereNotNull('day_no')->get() as $item) {
+                $serviceDays = in_array($item->cost_type, TripItemFactory::DURATION_TYPES, true)
+                    && ! $item->follows_trip_duration ? (float) $item->duration_qty : 1;
+                $nightLimit = $duration - ($nights < $duration ? 1 : 0);
+                if ($item->day_no + $serviceDays - 1 > $duration
+                    || (! $item->follows_trip_duration && in_array($item->cost_type, ['per_room', 'per_night'], true)
+                        && ($serviceDays > $nights || $item->day_no + $serviceDays - 1 > $nightLimit))) {
+                    $this->addError('form.end_date', 'Tanggal/malam trip terlalu pendek untuk layanan '.$item->item_name.'. Sesuaikan komponen terlebih dahulu.');
+
+                    return;
+                }
+            }
             $trip->fill($data + ['duration_days' => $duration]);
 
             $dirty = $trip->getDirty();
@@ -181,7 +249,7 @@ class TripForm extends Component
             foreach (array_keys($dirty) as $key) {
                 $old[$key] = $trip->getRawOriginal($key);
             }
-            
+
             // e. Perubahan nights juga memicu hitung ulang durasi komponen hotel
             $durationChanged = array_key_exists('duration_days', $dirty) || array_key_exists('nights', $dirty);
 
@@ -213,8 +281,13 @@ class TripForm extends Component
             'staffOptions' => User::role('staff')->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all(),
             'partnerOptions' => User::role('partner')->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all(),
             'destinationOptions' => Destination::active()->orderBy('name')->pluck('name', 'id')->all(),
-            'versionOptions' => PackageVersion::with('package')->where('status', 'active')->get()
+            'versionOptions' => PackageVersion::with('package')->where('status', 'active')
+                ->whereHas('package', fn ($query) => $query->where('status', 'active'))->get()
                 ->mapWithKeys(fn ($v) => [$v->id => $v->package->name.' (v'.$v->version_no.')'])->all(),
+            'templatePreview' => ! $this->trip && $this->packageVersionId
+                ? PackageVersion::with(['package', 'items.item'])->where('status', 'active')
+                    ->whereHas('package', fn ($query) => $query->where('status', 'active'))->find($this->packageVersionId)
+                : null,
             'isEdit' => $this->trip !== null,
         ]);
     }

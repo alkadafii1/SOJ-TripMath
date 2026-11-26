@@ -26,14 +26,16 @@ class TripService
     /** Menyalin komponen paket ke trip. Tarif diambil dari master saat ini. */
     public function snapshotFromVersion(Trip $trip, PackageVersion $version): void
     {
-        foreach ($version->items()->with('item')->get() as $row) {
+        app(TemplateReadiness::class)->validate($version, $trip);
+        foreach ($version->items()->with('item')->orderBy('day_no')->orderBy('id')->get() as $row) {
             $master = $row->item;
-            if (! $master || $master->trashed()) {
-                continue;
-            }
-
             $attributes = TripItemFactory::make($row->item_type, $master, $trip);
+            if ($row->duration_qty !== null && in_array($attributes['cost_type'], TripItemFactory::DURATION_TYPES, true)) {
+                $attributes['duration_qty'] = $row->duration_qty;
+            }
             $trip->costItems()->create($attributes + [
+                'day_no' => $row->day_no,
+                'follows_trip_duration' => $row->duration_qty === null,
                 'quantity' => $row->quantity,
                 'notes' => $row->notes,
             ]);

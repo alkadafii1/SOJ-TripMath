@@ -31,7 +31,8 @@
         </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
+    <!-- BLOK KODE ASLI DARI TEMANMU (DIKEMBALIKAN) -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pt-6">
 
         <!-- 1. Header Judul Trip -->
         <div>
