@@ -53,7 +53,7 @@ new class extends Component
 
     {{-- Sidebar --}}
     <aside :class="{ '!translate-x-0': open, 'lg:!translate-x-0': ! collapsed }"
-           class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-slate-100 bg-white shadow-[4px_0_24px_-12px_rgba(79,70,229,0.12)] transition-transform duration-200">
+           class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col overflow-x-hidden overflow-y-auto overscroll-contain border-r border-slate-100 bg-white shadow-[4px_0_24px_-12px_rgba(79,70,229,0.12)] transition-transform duration-200">
 
         {{-- Merek --}}
         <div class="flex h-[72px] shrink-0 items-center justify-between px-5">
@@ -79,8 +79,10 @@ new class extends Component
             </button>
         </div>
 
-        {{-- Menu: Ditambahkan 'overflow-visible' agar tidak ada scroll bawaan di sidebar --}}
-        <nav class="flex-1 space-y-6 overflow-visible px-4 py-3">
+
+
+        {{-- Seluruh sidebar menjadi satu area scroll, tanpa scroll di dalam submenu. --}}
+        <nav class="flex-1 space-y-6 px-4 py-3">
             <div class="space-y-1">
                 <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Operasional</p>
                 <x-sidebar-link :href="route('dashboard')" icon="home" :active="request()->routeIs('dashboard')">Dashboard</x-sidebar-link>
@@ -109,8 +111,10 @@ new class extends Component
                                 </svg>
                             </button>
                             
-                            {{-- Sub-menu Laporan (Scrollable jika isinya banyak) --}}
-                            <div x-show="reportOpen" x-collapse class="mt-1 space-y-0.5 pl-10 max-h-48 overflow-y-auto">
+
+
+                            {{-- Sub-menu Laporan mengikuti scroll sidebar. --}}
+                            <div x-show="reportOpen" x-collapse class="mt-1 space-y-0.5 pl-10">
                                 <a href="{{ route('reports', ['report' => 'trip']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'trip' ? 'text-indigo-600 bg-slate-50' : '' }}">Profit Trip</a>
                                 <a href="{{ route('reports', ['report' => 'vendor']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'vendor' ? 'text-indigo-600 bg-slate-50' : '' }}">Vendor Saving</a>
                                 <a href="{{ route('reports', ['report' => 'discount']) }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('reports*') && request()->query('report') === 'discount' ? 'text-indigo-600 bg-slate-50' : '' }}">Customer Discount</a>
@@ -152,7 +156,8 @@ new class extends Component
                         </button>
                         
                         {{-- Sub-menu Data Master (Muncul ke Bawah) --}}
-                        <div x-show="dropdownOpen" x-collapse class="mt-1 space-y-0.5 pl-10 max-h-48 overflow-y-auto">
+
+                        <div x-show="dropdownOpen" x-collapse class="mt-1 space-y-0.5 pl-10">
                             <a href="{{ url('/master/vendors') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/vendors*') ? 'text-indigo-600 bg-slate-50' : '' }}">Vendor</a>
                             <a href="{{ url('/master/hotels') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/hotels*') ? 'text-indigo-600 bg-slate-50' : '' }}">Hotel</a>
                             <a href="{{ url('/master/vehicles') }}" wire:navigate class="block rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors {{ request()->is('master/vehicles*') ? 'text-indigo-600 bg-slate-50' : '' }}">Kendaraan</a>
