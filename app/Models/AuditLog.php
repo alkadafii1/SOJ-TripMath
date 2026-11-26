@@ -15,7 +15,12 @@ class AuditLog extends Model
 
     protected function casts(): array
     {
-        return ['old_value' => 'array', 'new_value' => 'array'];
+        return ['old_value' => 'array', 'new_value' => 'array', 'created_at' => 'datetime'];
+    }
+
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     protected static function booted(): void

@@ -17,15 +17,18 @@ class AuthenticationTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSeeVolt('pages.auth.login');
+            ->assertSee('wire:submit="login"', false);
     }
 
     public function test_login_screen_uses_guest_layout_without_sidebar(): void
     {
         $this->get('/login')
             ->assertOk()
-            ->assertSee('Selamat Datang Kembali')
-            ->assertSee('Sistem Terbatas')
+            ->assertSee('Selamat Datang')
+            ->assertSee('Silakan masuk ke akun anda')
+            ->assertSee('max-w-md')
+            ->assertDontSee('sidebar-collapsed')
+            ->assertSee('livewire.js', false)
             ->assertDontSee('Buka menu'); // tombol sidebar milik layout aplikasi
     }
 
@@ -65,6 +68,7 @@ class AuthenticationTest extends TestCase
 
     public function test_failed_login_shows_indonesian_error_message(): void
     {
+        app()->setLocale('id');
         $user = User::factory()->create();
 
         Volt::test('pages.auth.login')
@@ -73,6 +77,37 @@ class AuthenticationTest extends TestCase
             ->call('login')
             ->assertHasErrors(['form.email'])
             ->assertSee('Email atau kata sandi salah.');
+    }
+
+    public function test_login_is_rate_limited_with_a_translated_message(): void
+    {
+        app()->setLocale('id');
+        $component = Volt::test('pages.auth.login')
+            ->set('form.email', 'throttle@example.test')
+            ->set('form.password', 'wrong-password');
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $component->call('login')->assertHasErrors(['form.email']);
+        }
+
+        $component->call('login')
+            ->assertHasErrors(['form.email'])
+            ->assertSee('Terlalu banyak percobaan masuk.')
+            ->assertDontSee('auth.throttle')
+            ->assertNoRedirect();
+        $this->assertGuest();
+    }
+
+    public function test_failed_login_uses_the_selected_locale(): void
+    {
+        app()->setLocale('en');
+        Volt::test('pages.auth.login')
+            ->set('form.email', 'unknown@example.test')
+            ->set('form.password', 'wrong-password')
+            ->call('login')
+            ->assertHasErrors(['form.email'])
+            ->assertSee(trans('auth.failed'))
+            ->assertNoRedirect();
     }
 
     public function test_navigation_menu_can_be_rendered(): void
@@ -85,7 +120,7 @@ class AuthenticationTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSeeVolt('layout.navigation');
+            ->assertSee('wire:click="logout"', false);
     }
 
     public function test_users_can_logout(): void
