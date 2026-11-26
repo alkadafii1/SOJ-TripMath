@@ -73,6 +73,7 @@ class ReconciliationService
             'variance_negotiated' => $this->finance->calculateVariance($negotiated['total'], $actual['total']),
             'variance_standard' => $this->finance->calculateVariance($standard['total'], $actual['total']),
             'revenue' => $revenue,
+            'recommended_price' => $pricing?->recommended_price === null ? null : (string) $pricing->recommended_price,
             'customer_discount' => $pricing?->customer_discount === null ? null : (string) $pricing->customer_discount,
             'profit' => $revenue !== null ? $this->finance->calculateProfit($revenue, $actual['total'], $trip->effectivePax()) : null,
             'paid' => $pay['paid'],
@@ -310,6 +311,9 @@ class ReconciliationService
 
             $r = fn ($v) => $v === null ? null : $this->pricing->roundMoney($v);
             $values = [
+                'recommended_price' => $r($figures['recommended_price']),
+                'effective_pax' => $fresh->effectivePax(),
+                'trip_end_date' => $fresh->end_date->toDateString(),
                 'revenue' => $r($figures['revenue']),
                 'standard_cost' => $r($figures['standard']),
                 'negotiated_cost' => $r($figures['negotiated']),

@@ -37,18 +37,34 @@
                 <h2 class="text-2xl font-bold tracking-tight text-slate-900">Ringkasan Dashboard</h2>
                 <p class="mt-1 text-sm text-slate-500">Kondisi trip, jadwal keberangkatan, dan hasil bisnis dalam satu tempat.</p>
             </div>
-            <div class="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm ring-1 ring-slate-100">
+            
+            <div class="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl shadow-sm ring-1 ring-slate-100">
                 <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider pl-2">Periode</label>
                 <select wire:model.live="preset" class="block w-full rounded-lg border-0 bg-slate-50 py-1.5 pl-3 pr-8 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 sm:text-sm">
-                    @foreach ($presets as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                    @foreach ($presets as $key => $label)
+                        <option value="{{ $key }}">{{ $label }}</option>
+                    @endforeach
                 </select>
+                
+                @if ($preset === 'custom')
+                    <label class="text-xs text-gray-500">Dari
+                        <input aria-label="Tanggal mulai operasional" type="date" wire:model.blur="from" class="mt-1 block rounded-lg border-gray-300 text-sm">
+                    </label>
+                    <label class="text-xs text-gray-500">Sampai
+                        <input aria-label="Tanggal akhir operasional" type="date" wire:model.blur="to" class="mt-1 block rounded-lg border-gray-300 text-sm">
+                    </label>
+                @endif
             </div>
         </div>
 
-        @if ($error)
-            <p role="alert" class="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-800 shadow-sm">{{ $error }}</p>
-        @endif
+        <div class="h-4">
+            <span wire:loading.delay role="status" class="text-xs text-gray-500">Memperbarui dashboard...</span>
+        </div>
         
+        @if ($error)
+            <p role="alert" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ $error }}</p>
+        @endif
+
         <div class="flex items-center gap-2 text-xs text-slate-500 bg-slate-100/50 p-3 rounded-lg">
             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             Ringkasan dan sebaran status berdasarkan tanggal mulai trip: <strong class="text-slate-700">{{ $period->label() }}</strong>. Hanya data yang boleh Anda lihat.
@@ -149,7 +165,7 @@
                 </div>
             </section>
 
-            <!-- Sebaran Status Trip (Full Width) -->
+            <!-- Sebaran Status Trip -->
             <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="flex items-center gap-3 mb-5">
                     <div class="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -165,7 +181,6 @@
                     $max = max(1, max(array_column($stats['statuses'], 'count'))); 
                     $statusesChunked = collect($stats['statuses'])->split(2);
 
-                    // Mapping ikon kecil untuk setiap status
                     $statusIcons = [
                         'draft' => 'pencil',
                         'estimated' => 'tag',
@@ -185,19 +200,13 @@
                         <div class="space-y-3">
                             @foreach ($chunk as $row)
                                 <div class="grid grid-cols-[130px_1fr_30px] items-center gap-4 text-xs">
-                                    
-                                    <!-- Label + Ikon Kecil -->
                                     <div class="flex items-center gap-2 text-slate-600 font-semibold truncate">
                                         <x-icon :name="$statusIcons[$row['status']] ?? 'tag'" class="w-4 h-4 text-slate-500 shrink-0" />
                                         <span>{{ $row['label'] }}</span>
                                     </div>
-                                    
-                                    <!-- Progress Bar -->
                                     <div class="h-2 overflow-hidden rounded-full bg-slate-100">
                                         <div class="h-full rounded-full {{ $row['status'] === 'cancelled' ? 'bg-slate-300' : 'bg-indigo-500' }}" style="width: {{ $row['count'] / $max * 100 }}%"></div>
                                     </div>
-                                    
-                                    <!-- Angka -->
                                     <span class="text-right font-bold text-slate-900 bg-slate-50 py-0.5 rounded">{{ $row['count'] }}</span>
                                 </div>
                             @endforeach
@@ -206,36 +215,45 @@
                 </div>
             </section>
 
-            <!-- Ringkasan Keuangan (Full Width, di bawah Sebaran) -->
+            <!-- Ringkasan Keuangan (Desain Baru Gaya Gambar 1) -->
             @can('view-finance')
-                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm overflow-hidden relative">
-                    <!-- ICON WATERMARK FINANCE -->
-                    <x-icon name="wallet" class="absolute -right-4 -bottom-4 w-32 h-32 text-slate-50 opacity-50 pointer-events-none" />
-                    
-                    <div class="relative z-10 [&>div>dl]:grid-cols-1 [&>div>div]:grid-cols-1 [&>div>dl>div]:bg-white [&>div>dl>div]:border [&>div>dl>div]:border-slate-200 [&>div>dl>div]:shadow-sm">
+                <section class="space-y-4">
+                    <!-- Header Section -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-900">Ringkasan keuangan</h2>
+                            <p class="mt-0.5 text-xs text-slate-500">Periode {{ $period->label() }}. Dihitung dari trip yang selesai pada periode itu dan sudah direkonsiliasi.</p>
+                        </div>
+                    </div>
+
+                    <!-- Panggil Komponen Livewire (Data Tetap) -->
+                    <div class="[&>div>div]:grid [&>div>div]:grid-cols-1 [&>div>div]:lg:grid-cols-3 [&>div>div]:gap-4
+                                [&>div>div>div]:bg-white [&>div>div>div]:rounded-2xl [&>div>div>div]:border [&>div>div>div]:border-slate-200 [&>div>div>div]:p-5 [&>div>div>div]:shadow-sm">
                         <livewire:dashboard.summary />
                     </div>
-                </div>
+                </section>
             @endcan
         </div>
 
-        <!-- Perlu Perhatian (Paling Bawah Full Width) -->
+        <!-- Perlu Perhatian -->
         @if ($actions)
             <section class="rounded-2xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm">
                 <div class="flex items-center gap-2 mb-2">
                     <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    <h2 class="text-sm font-bold text-amber-900">Perlu Perhatian</h2>
+                    <h2 class="text-sm font-bold text-amber-900">Perlu perhatian</h2>
                 </div>
-                <p class="text-xs text-amber-800 mb-4">Pemeriksaan saat ini, tidak mengikuti periode.</p>
+                <p class="text-xs text-amber-800 mb-4">Pemeriksaan saat ini, tidak mengikuti periode. Satu trip bisa masuk beberapa kategori.</p>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="flex flex-col gap-2">
                     @foreach ($actions as $action)
-                        <details class="group bg-white rounded-xl border border-amber-100 p-4 text-sm shadow-sm [&_summary::-webkit-details-marker]:hidden">
-                            <summary class="flex items-center justify-between cursor-pointer font-medium text-amber-900">
-                                <span>{{ $action['count'] }} trip: {{ $action['title'] }}</span>
-                                <svg class="w-4 h-4 text-amber-500 transition-transform group-open:rotate-180 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        <details class="group bg-white rounded-xl border border-amber-200 p-4 text-sm shadow-sm [&_summary::-webkit-details-marker]:hidden">
+                            <summary class="flex items-center justify-between cursor-pointer font-medium text-slate-800 hover:text-amber-900 transition-colors">
+                                <span class="flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-amber-500 transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                    {{ $action['count'] }} trip: {{ $action['title'] }}
+                                </span>
                             </summary>
-                            <ul class="mt-3 space-y-2 pl-1">
+                            <ul class="mt-3 space-y-2 pl-7">
                                 @foreach ($action['trips'] as $trip)
                                     <li>
                                         <a href="{{ $trip['url'] }}" wire:navigate class="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 hover:underline">
