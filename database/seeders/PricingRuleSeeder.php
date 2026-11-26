@@ -10,6 +10,10 @@ class PricingRuleSeeder extends Seeder
     /** Nilai awal hanya contoh. Owner mengubahnya lewat menu Aturan Harga. */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing']) || PricingRule::query()->exists()) {
+            return;
+        }
+
         $rules = [
             // 1. Rule Default (Markup 20%)
             [
@@ -67,17 +71,10 @@ class PricingRuleSeeder extends Seeder
             ],
         ];
 
-        foreach ($rules as $rule) {
-            // Menggunakan updateOrCreate agar aman dijalankan berulang kali
-            // Pengecekan berdasarkan method dan rate_percent agar tidak bentrok
-            PricingRule::updateOrCreate(
-                [
-                    'method' => $rule['method'], 
-                    'rate_percent' => $rule['rate_percent'],
-                    'status' => $rule['status']
-                ],
-                $rule
-            );
+        foreach ($rules as $index => $rule) {
+            // Only the demo default is active; never replace existing business rules.
+            $rule['status'] = $index === 0 ? 'active' : 'inactive';
+            PricingRule::create($rule);
         }
     }
 }

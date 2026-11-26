@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class DestinationSeeder extends Seeder
@@ -186,7 +185,7 @@ class DestinationSeeder extends Seeder
         ];
 
         foreach ($destinations as $destination) {
-            DB::table('destinations')->insert([
+            SeedDefaults::insertIfMissing('destinations', ['name' => $destination['name']], [
                 'name' => $destination['name'],
                 'category' => $destination['category'],
                 'location' => $destination['location'],

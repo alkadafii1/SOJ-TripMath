@@ -148,13 +148,19 @@ class MealSeeder extends Seeder
         ];
 
         foreach ($meals as $meal) {
-            DB::table('meals')->insert([
-                'vendor_id' => null, // Sesuaikan jika ada vendor
+            $vendorName = match ($meal['meal_type']) {
+                'Prasmanan Kampung Bethek' => 'Kampung Bethek',
+                'Rawon Bik Ati (Makan Malam)' => 'Rawon Bik Ati',
+                'Rujak Soto' => 'Srengenge Wetan',
+                default => null,
+            };
+            SeedDefaults::insertIfMissing('meals', ['meal_type' => $meal['meal_type']], [
+                'vendor_id' => $vendorName === null ? null : DB::table('vendors')->where('name', $vendorName)->whereNull('deleted_at')->value('id'),
                 'meal_type' => $meal['meal_type'],
                 'cost_per_person' => $meal['cost_per_person'],
                 'notes' => $meal['notes'],
                 'status' => $meal['status'],
-                'valid_from' => $meal['valid_from'],
+                'valid_from' => $meal['status'] === 'active' ? $meal['valid_from'] : $now->copy()->subYear(),
                 'valid_until' => $meal['valid_until'],
                 'created_at' => $now,
                 'updated_at' => $now,

@@ -16,6 +16,15 @@ class HotelSeeder extends Seeder
         $now = Carbon::now();
 
         $hotels = [
+            [
+                'name' => 'Hotel Kokoon', 'room_type' => 'Standard',
+                'standard_rate' => 0, 'occupancy' => 2, 'max_pax' => 2,
+                'extra_bed_cost' => null, 'breakfast_included' => false,
+                'cost_type' => 'per_room',
+                'notes' => 'Contoh paket SOJ. Tarif dan fasilitas wajib dikonfirmasi Owner.',
+                'status' => 'active', 'valid_from' => $now,
+                'valid_until' => $now->copy()->addYear(),
+            ],
             // ========== Hotel Bintang 4-5 ==========
             [
                 'name' => 'Kunang Kunang Resort',
@@ -294,8 +303,8 @@ class HotelSeeder extends Seeder
         ];
 
         foreach ($hotels as $hotel) {
-            DB::table('hotels')->insert([
-                'vendor_id' => null, // Sesuaikan jika ada vendor
+            SeedDefaults::insertIfMissing('hotels', ['name' => $hotel['name'], 'room_type' => $hotel['room_type']], [
+                'vendor_id' => DB::table('vendors')->where('name', $hotel['name'] === 'Hotel Kokoon' ? 'Kokoon Hotel Banyuwangi' : $hotel['name'])->whereNull('deleted_at')->value('id'),
                 'name' => $hotel['name'],
                 'room_type' => $hotel['room_type'],
                 'standard_rate' => $hotel['standard_rate'],
@@ -306,7 +315,7 @@ class HotelSeeder extends Seeder
                 'cost_type' => $hotel['cost_type'],
                 'notes' => $hotel['notes'],
                 'status' => $hotel['status'],
-                'valid_from' => $hotel['valid_from'],
+                'valid_from' => $hotel['status'] === 'active' ? $hotel['valid_from'] : $now->copy()->subYear(),
                 'valid_until' => $hotel['valid_until'],
                 'created_at' => $now,
                 'updated_at' => $now,

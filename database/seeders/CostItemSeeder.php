@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class CostItemSeeder extends Seeder
@@ -469,16 +468,23 @@ class CostItemSeeder extends Seeder
         ];
 
         foreach ($costItems as $item) {
-            DB::table('cost_items')->insert([
-                'category' => $item['category'],
+            $costType = match ($item['cost_type']) {
+                'per_unit', 'per_group' => 'per_trip',
+                default => $item['cost_type'],
+            };
+            if ($item['cost_behavior'] === 'percentage') {
+                $costType = 'percentage';
+            }
+            SeedDefaults::insertIfMissing('cost_items', ['name' => $item['name']], [
+                'category' => array_key_exists($item['category'], \App\Support\Options::COST_CATEGORIES) ? $item['category'] : 'lainnya',
                 'name' => $item['name'],
                 'vendor_id' => $item['vendor_id'],
                 'destination_id' => $item['destination_id'],
-                'cost_type' => $item['cost_type'],
-                'cost_behavior' => $item['cost_behavior'],
+                'cost_type' => $costType,
+                'cost_behavior' => in_array($costType, ['per_person', 'percentage'], true) ? 'variable' : 'fixed',
                 'standard_cost' => $item['standard_cost'],
-                'percentage' => $item['percentage'],
-                'base_type' => $item['base_type'],
+                'percentage' => $costType === 'percentage' ? bcmul((string) $item['percentage'], '100', 4) : null,
+                'base_type' => $costType === 'percentage' ? 'subtotal' : null,
                 'attributes' => $item['attributes'],
                 'valid_from' => $item['valid_from'],
                 'valid_until' => $item['valid_until'],
